@@ -1,0 +1,346 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --honey: #FFB800;
+  --honey-glow: rgba(255, 184, 0, 0.4);
+  --bg-base: transparent;
+  --border-glass: rgba(255, 255, 255, 0.12);
+  --cyan-accent: #00F0FF;
+  --text-main: #FAFAFA;
+}
+
+html.light {
+  --bg-base: transparent;
+  --text-main: #1a1a1a;
+  --border-glass: rgba(0, 0, 0, 0.1);
+}
+
+html.dark .glass-premium {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+}
+
+html.light .glass-premium {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.15);
+}
+
+html.light .honey-text-gradient {
+  background: linear-gradient(135deg, #333 30%, #FFB800 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+html.light body {
+  color: #1a1a1a;
+}
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: var(--bg-base);
+    color: var(--text-main);
+    scroll-behavior: smooth;
+    overflow-x: hidden;
+    margin: 0;
+    transition: background-color 0.5s ease, color 0.5s ease;
+  }
+}
+
+.light .glass-premium {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40px) saturate(200%);
+  box-shadow: 0 15px 45px 0 rgba(0, 0, 0, 0.12), 0 5px 15px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.light .honey-text-gradient {
+  background: linear-gradient(135deg, #333 30%, #FFB800 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+#bg-video-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 1s ease-in-out;
+  pointer-events: none;
+  overflow: hidden;
+  background: #f0f0f0;
+  will-change: opacity;
+}
+
+html.light #bg-video-container {
+  opacity: 1;
+}
+
+#bg-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Premium Noise Texture Overlay */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.hexagon-bg {
+  background-color: var(--bg-base);
+  background-image:
+    radial-gradient(circle at 50% -20%, rgba(255, 184, 0, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 0% 100%, rgba(0, 240, 255, 0.05) 0%, transparent 30%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 0l34.64 20v40L40 80 5.36 60V20z' fill-opacity='0.015' fill='%23FFB800' fill-rule='evenodd'/%3E%3C/svg%3E");
+  background-attachment: fixed;
+}
+
+.glass-premium {
+  background: rgba(10, 10, 10, 0.65);
+  backdrop-filter: blur(25px) saturate(180%);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
+}
+
+.honey-text-gradient {
+  background: linear-gradient(135deg, #FFF 30%, #FFB800 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-premium {
+  background: linear-gradient(135deg, #FFB800 0%, #FF8A00 100%);
+  color: #1A1100;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  border-radius: 1rem;
+  box-shadow: 0 0 30px rgba(255, 184, 0, 0.2);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.btn-premium:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(255, 184, 0, 0.4);
+}
+
+.glass-btn {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+html.light .glass-btn {
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1a1a1a;
+}
+
+html.light .glass-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+html.light .text-gray-400,
+html.light .text-gray-500,
+html.light .text-gray-600 {
+  color: #4a4a4a !important;
+}
+
+html.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+.text-shadow-premium {
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.icon-3d-prism {
+  filter: drop-shadow(0 0 15px currentColor);
+  transform: perspective(1000px) rotateY(-15deg);
+  transition: transform 0.6s ease;
+}
+
+.group:hover .icon-3d-prism {
+  transform: perspective(1000px) rotateY(0deg) scale(1.1);
+}
+
+/* Animated Floating */
+@keyframes float-soft {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+
+  50% {
+    transform: translateY(-10px) rotate(1deg);
+  }
+}
+
+.animate-float-soft {
+  animation: float-soft 6s ease-in-out infinite;
+}
+
+.clip-hexagon {
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.glass {
+  backdrop-filter: blur(20px) saturate(160%);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+html.light .glass {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+
+/* Chat Specific Premium Styles */
+.chat-sidebar-glass {
+  background: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(40px) saturate(200%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+.chat-list-item {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+
+.chat-list-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  transform: translateX(4px);
+}
+
+.chat-list-item-active {
+  background: linear-gradient(90deg, rgba(255, 184, 0, 0.1) 0%, rgba(255, 184, 0, 0.02) 100%) !important;
+  border-left: 3px solid var(--honey) !important;
+  border-radius: 0 1rem 1rem 0 !important;
+  margin-right: 1rem !important;
+}
+
+.chat-header-glass {
+  background: rgba(15, 23, 42, 0.8) !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.message-bubble {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.message-bubble:hover {
+  transform: scale(1.01);
+}
+
+.message-bubble-user {
+  background: linear-gradient(135deg, rgba(255, 184, 0, 0.15) 0%, rgba(255, 138, 0, 0.05) 100%) !important;
+  border: 1px solid rgba(255, 184, 0, 0.2) !important;
+  box-shadow: 0 8px 32px 0 rgba(255, 184, 0, 0.1) !important;
+}
+
+.message-bubble-other {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.search-input-glass {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  transition: all 0.3s ease;
+}
+
+.search-input-glass:focus {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 184, 0, 0.4) !important;
+  box-shadow: 0 0 20px rgba(255, 184, 0, 0.1);
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slideInUp {
+  animation: slideInUp 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.glow-honey-soft {
+  filter: drop-shadow(0 0 8px rgba(255, 184, 0, 0.3));
+}
+
+@keyframes audio-wave {
+
+  0%,
+  100% {
+    height: 4px;
+  }
+
+  50% {
+    height: 16px;
+  }
+}
+
+.animate-audio-wave {
+  animation: audio-wave 0.5s ease-in-out infinite;
+}

@@ -1,0 +1,33 @@
+I need to implement a dynamic, full-screen video background system with a "Glassmorphism" UI effect.
+1. Assets & Theme Logic:
+I have two video files: BACKGROUND.DARK.mp4 and BACKGROUNDFORLIGHT.mp4.
+The system must detect the current theme (Light or Dark).
+If Dark Mode is active -> Play BACKGROUND.DARK.mp4.
+If Light Mode is active -> Play BACKGROUNDFORLIGHT.mp4.
+Smoothly transition between videos if the theme changes.
+2. Video Behavior:
+The video must stay fixed in the background (z-index: -1).
+Use object-fit: cover to fill the entire screen without stretching.
+The video must Autoplay, Loop, be Muted, and play inline (for mobile compatibility).
+3. Foreground UI & Transparency (Crucial):
+All foreground elements (navbars, cards, buttons, containers) must be semi-transparent so the background video is visible through them.
+Use a Glassmorphism effect:
+Backgrounds should use rgba (e.g., rgba(255, 255, 255, 0.2) for light mode and rgba(0, 0, 0, 0.3) for dark mode).
+Apply backdrop-filter: blur(10px) (or equivalent in the chosen tech stack) to create a blurry glass effect.
+Ensure text remains readable (high contrast) against the video background.
+Please provide the full code implementation including the logic for theme toggling.
+
+.Menga quyidagi funksionallik uchun kod yozib ber:
+Menda 2 ta video bor: BACKGROUND.DARK.mp4 va BACKGROUNDFORLIGHT.mp4.
+Talablar:
+Orqa fon (Background):
+Ilova "Dark Mode"da bo'lganda BACKGROUND.DARK.mp4 videosi o'ynasin.
+"Light Mode"da bo'lganda BACKGROUNDFORLIGHT.mp4 videosi o'ynasin.
+Video butun ekranni egallashi (full screen), ovozsiz bo'lishi va doimiy takrorlanishi (loop) shart.
+Dizayn va Shaffoflik (Glassmorphism):
+Ekranda turgan barcha elementlar (tugmalar, menyular, bloklar) orqa fonni to'sib qo'ymasligi kerak.
+Ularga shaffoflik (opacity/alpha) va xira qilish (blur effect) bergin. Masalan, oyna effekti (Glassmorphism) bo'lsin. Orqa fondagi video elementlar ortidan ko'rinib turishi kerak.
+Mantiq:
+Mavzu (Theme) o'zgarganda video ham avtomatik almashsin.
+
+User can change theme using Theme chenging button button disign will be shaffof and smootly neon light

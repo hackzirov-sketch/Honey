@@ -1,0 +1,179 @@
+
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Honey - Elite AI Digital Ecosystem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --honey: #FFB800;
+            --honey-glow: rgba(255, 184, 0, 0.4);
+            --bg-base: #030303;
+            --border-glass: rgba(255, 255, 255, 0.12);
+            --cyan-accent: #00F0FF;
+            --text-main: #FAFAFA;
+        }
+
+        html.light {
+            --bg-base: #f0f0f0;
+            --text-main: #1a1a1a;
+            --border-glass: rgba(0, 0, 0, 0.1);
+        }
+        
+        body { 
+          font-family: 'Plus Jakarta Sans', sans-serif; 
+          background-color: var(--bg-base);
+          color: var(--text-main);
+          scroll-behavior: smooth;
+          overflow-x: hidden;
+          margin: 0;
+          transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .light .glass-premium {
+            background: rgba(255, 255, 255, 0.7);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .light .honey-text-gradient {
+            background: linear-gradient(135deg, #333 30%, #FFB800 100%);
+            -webkit-background-clip: text;
+        }
+
+        #bg-video-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 1s ease-in-out;
+            pointer-events: none;
+            overflow: hidden;
+            background: #f0f0f0;
+            will-change: opacity;
+        }
+
+        html.light #bg-video-container {
+            opacity: 1;
+        }
+
+        #bg-video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+        }
+
+        /* Premium Noise Texture Overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        .hexagon-bg {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(circle at 50% -20%, rgba(255, 184, 0, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 0% 100%, rgba(0, 240, 255, 0.05) 0%, transparent 30%),
+                url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M40 0l34.64 20v40L40 80 5.36 60V20z' fill-opacity='0.015' fill='%23FFB800' fill-rule='evenodd'/%3E%3C/svg%3E");
+            background-attachment: fixed;
+        }
+
+        .glass-premium { 
+            background: rgba(10, 10, 10, 0.65);
+            backdrop-filter: blur(25px) saturate(180%);
+            border: 1px solid var(--border-glass);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
+        }
+
+        .honey-text-gradient {
+            background: linear-gradient(135deg, #FFF 30%, #FFB800 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #FFB800 0%, #FF8A00 100%);
+            color: #1A1100;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            border-radius: 1rem;
+            box-shadow: 0 0 30px rgba(255, 184, 0, 0.2);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(255, 184, 0, 0.4);
+        }
+
+        .text-shadow-premium {
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .icon-3d-prism {
+            filter: drop-shadow(0 0 15px currentColor);
+            transform: perspective(1000px) rotateY(-15deg);
+            transition: transform 0.6s ease;
+        }
+
+        .group:hover .icon-3d-prism {
+            transform: perspective(1000px) rotateY(0deg) scale(1.1);
+        }
+
+        /* Animated Floating */
+        @keyframes float-soft {
+            0%, 100% { transform: translateY(0) rotate(0); }
+            50% { transform: translateY(-10px) rotate(1deg); }
+        }
+        .animate-float-soft { animation: float-soft 6s ease-in-out infinite; }
+
+        .clip-hexagon { clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.37.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0",
+    "recharts": "https://esm.sh/recharts@^3.6.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="hexagon-bg">
+    <div id="bg-video-container">
+        <video id="bg-video" autoplay loop muted playsinline>
+            <source src="/background.mp4" type="video/mp4">
+        </video>
+    </div>
+    <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

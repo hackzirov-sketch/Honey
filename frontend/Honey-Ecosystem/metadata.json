@@ -1,0 +1,8 @@
+{
+  "name": "Honey: Yangi Avlod AI Ekotizimi",
+  "description": "Honey - bu nafaqat messenjer, balki AI yordamchi, media platforma va bilim markazini birlashtirgan to'liq raqamli ekotizim.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
