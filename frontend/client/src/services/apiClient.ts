@@ -87,9 +87,11 @@ export async function apiClient<T = any>(
     } = options;
 
     // --- To'liq URL yasash ---
-    // API_BASE_URL bo'sh bo'lsa (Express mode), faqat endpoint ishlatadi
-    // Django mode da: "http://localhost:8000" + "/api/chat/" = to'liq URL
-    const url = `${API_BASE_URL}${endpoint}`;
+    // Agar API_BASE_URL berilgan bo'lsa (boshqa accountda bo'lsa), undan foydalanadi.
+    // Bo'sh bo'lsa (va proxy bo'lmasa), xato bermasligi uchun "/" qo'shadi.
+    const url = API_BASE_URL
+        ? `${API_BASE_URL.replace(/\/$/, "")}${endpoint}`
+        : endpoint;
 
     // --- Headerlar ---
     const requestHeaders: Record<string, string> = {

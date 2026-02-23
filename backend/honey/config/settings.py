@@ -253,11 +253,17 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5000",
     "http://127.0.0.1:5173",
 ]
-# Render frontend URL ni CORS ga qo'shamiz
-if FRONTEND_URL and FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
-    CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
-if RENDER_EXTERNAL_HOSTNAME:
-    CORS_ALLOWED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+# Render frontend URL ni CORS va CSRF ga qo'shamiz
+if FRONTEND_URL:
+    if FRONTEND_URL not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(FRONTEND_URL)
+    # CSRF uchun ishonchli domenlar (https:// bilan bo'lishi shart)
+    CSRF_TRUSTED_ORIGINS = [FRONTEND_URL]
+    if RENDER_EXTERNAL_HOSTNAME:
+        CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
+else:
+    CSRF_TRUSTED_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]
+
 CORS_ALLOW_HEADERS = [
     "accept",
     "accept-encoding",
