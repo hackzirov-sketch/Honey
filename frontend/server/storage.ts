@@ -61,11 +61,11 @@ export class MemStorage implements IStorage {
   }
 
   async logChat(chat: InsertChatHistory): Promise<ChatHistory> {
-      const id = this.currentChatId++;
-      const entry: ChatHistory = { ...chat, id, timestamp: new Date(), userId: chat.userId || null };
-      this.chats.set(id, entry);
-      return entry;
+    const id = this.currentChatId++;
+    const entry: ChatHistory = { ...chat, id, timestamp: new Date(), userId: chat.userId || null };
+    this.chats.set(id, entry);
+    return entry;
   }
 }
 
-export const storage = new MemStorage(); // Defaulting to MemStorage for now to avoid DB setup issues if not provisioned
+export const storage = db ? new DatabaseStorage() : new MemStorage();

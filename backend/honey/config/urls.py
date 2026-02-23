@@ -33,9 +33,13 @@ schema_view = get_schema_view(
     permission_classes=[permissions.AllowAny],
 )
 
+from django.http import JsonResponse
+
 urlpatterns = [
+    path("health/", lambda r: JsonResponse({"status": "ok"})),
     path("admin/", admin.site.urls),
     path("api/v1/auth/", include("authentication.urls")),
+# ...
     path("api/v1/library/", include("library.urls")),
     path("api/v1/comment/", include("comment.urls")),
     path("api/v1/chat/", include("chat.urls")),

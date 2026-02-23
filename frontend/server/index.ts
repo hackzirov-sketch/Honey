@@ -99,19 +99,12 @@ function findFreePort(startPort: number): Promise<number> {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  // Avval 5000 portni sinab ko'r, band bo'lsa keyingisini avtomatik topadi
-  const desiredPort = parseInt(process.env.PORT || "5000", 10);
-  const port = await findFreePort(desiredPort);
-
-  if (port !== desiredPort) {
-    log(`⚠️  Port ${desiredPort} band edi, ${port} portda ishga tushmoqda...`);
-  }
+  // Renderda va productionda doimo tayinlangan PORT dan foydalanish shart
+  const port = process.env.NODE_ENV === "production"
+    ? parseInt(process.env.PORT || "10000", 10)
+    : await findFreePort(parseInt(process.env.PORT || "5000", 10));
 
   httpServer.listen(port, "0.0.0.0", () => {
-    log(`✅ Server ishga tushdi: http://localhost:${port}`);
+    log(`✅ Server ${process.env.NODE_ENV === "production" ? "PRODUCTION" : "DEV"} rejimida ishga tushdi: http://0.0.0.0:${port}`);
   });
 })();
