@@ -16,7 +16,7 @@ export function serveStatic(app: Express) {
   app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
   // Barcha boshqa so'rovlarni index.html ga yo'naltirish (React Router uchun)
-  app.get("*", (_req, res) => {
+  app.get("(.*)", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }
