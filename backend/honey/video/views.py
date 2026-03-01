@@ -51,7 +51,7 @@ class VideoViewSet(viewsets.ViewSet):
         tags=["Videos"],
     )
     def list(self, request):
-        queryset = VideoModel.objects.all().order_by("-created_at")
+        queryset = VideoModel.objects.select_related('uploader', 'category').all().order_by("-created_at")
         search = request.query_params.get('search')
         category = request.query_params.get('category')
         

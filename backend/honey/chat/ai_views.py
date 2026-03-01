@@ -1,4 +1,5 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,7 +15,9 @@ GEMINI_API_KEY = getenv("GEMINI_API_KEY")
 MODEL_NAME = "models/gemini-2.5-flash"
 
 if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+    client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    client = None
 
 class AIChatViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -55,20 +58,31 @@ class AIChatViewSet(viewsets.ViewSet):
         )
 
         print(f"AI Request: {message[:50]}...")
-        try:
-            model = genai.GenerativeModel(
-                model_name=MODEL_NAME,
-                system_instruction=system_instruction
+        if not client:
+            return Response(
+                {"message": "Gemini API Client is not initialized"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-            response = model.generate_content(message)
+
+        try:
+            config = types.GenerateContentConfig(
+                system_instruction=system_instruction,
+            )
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=message,
+                config=config,
+            )
             print("AI SUCCESS")
             return Response({"text": response.text}, status=status.HTTP_200_OK)
         except Exception as e:
             print(f"AI Chat Error: {str(e)}")
             try:
                 # Fallback to 1.5 flash
-                fallback_model = genai.GenerativeModel("gemini-1.5-flash")
-                response = fallback_model.generate_content(message)
+                response = client.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=message,
+                )
                 return Response({"text": response.text}, status=status.HTTP_200_OK)
             except Exception as e2:
                 return Response(
@@ -79,10 +93,15 @@ class AIChatViewSet(viewsets.ViewSet):
     @swagger_auto_schema(tags=["AI"])
     @action(detail=False, methods=["post"], url_path="search")
     def search(self, request):
+        if not client:
+            return Response({"message": "Gemini API Client is not initialized"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         query = request.data.get("query", "")
         try:
-            model = genai.GenerativeModel(MODEL_NAME)
-            response = model.generate_content(f"Search for educational content: {query}")
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=f"Search for educational content: {query}"
+            )
             return Response({"text": response.text, "sources": []}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -90,10 +109,15 @@ class AIChatViewSet(viewsets.ViewSet):
     @swagger_auto_schema(tags=["AI"])
     @action(detail=False, methods=["post"], url_path="improve")
     def improve(self, request):
+        if not client:
+            return Response({"message": "Gemini API Client is not initialized"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
         text = request.data.get("text", "")
         try:
-            model = genai.GenerativeModel(MODEL_NAME)
-            response = model.generate_content(f"Tahrirlab ber: {text}")
+            response = client.models.generate_content(
+                model=MODEL_NAME,
+                contents=f"Tahrirlab ber: {text}"
+            )
             return Response({"text": response.text}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

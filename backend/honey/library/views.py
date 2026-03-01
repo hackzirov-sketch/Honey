@@ -130,7 +130,7 @@ class UserBookViewSet(viewsets.ViewSet):
         tags=["User Books"],
     )
     def list(self, request):
-        queryset = UserBookModel.objects.select_related("book").filter(user=request.user)
+        queryset = UserBookModel.objects.select_related("book", "book__genre", "book__category").filter(user=request.user)
         serializer = UserBookSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 

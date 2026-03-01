@@ -7,6 +7,10 @@ load_dotenv()
 
 def find_working_models():
     api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        print("No API Key")
+        return
+
     client = genai.Client(api_key=api_key)
     
     print("Listing models using client.models.list()...")

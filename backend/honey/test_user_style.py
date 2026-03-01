@@ -1,6 +1,6 @@
 
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,11 +11,13 @@ def test_user_style():
         print("No API Key")
         return
         
-    genai.configure(api_key=api_key)
-    print("Testing models/gemini-2.5-flash with google.generativeai...")
+    client = genai.Client(api_key=api_key)
+    print("Testing models/gemini-2.5-flash with google.genai...")
     try:
-        model = genai.GenerativeModel('models/gemini-2.5-flash')
-        response = model.generate_content("Hello")
+        response = client.models.generate_content(
+            model='models/gemini-2.5-flash',
+            contents="Hello"
+        )
         print("SUCCESS!")
         print(response.text)
     except Exception as e:

@@ -154,7 +154,7 @@ class GroupViewSet(viewsets.ViewSet):
         if not group:
             return Response({'message': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        messages = MessageModel.objects.filter(group=group).order_by('created_at')
+        messages = MessageModel.objects.filter(group=group).select_related('sender').order_by('created_at')
         serializer = MessageSerializer(messages, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -293,7 +293,7 @@ class ChatViewSet(viewsets.ViewSet):
         messages = MessageModel.objects.filter(
             receiver__in=[chat.user1, chat.user2],
             sender__in=[chat.user1, chat.user2]
-        ).order_by("created_at")
+        ).select_related('sender', 'receiver').order_by("created_at")
 
         serializer = MessageSerializer(messages, many=True, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
