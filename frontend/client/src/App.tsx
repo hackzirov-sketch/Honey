@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { HashRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import Home from './pages/Home';
 import Messenger from './pages/Messenger';
 import Media from './pages/Media';
@@ -266,21 +267,73 @@ const AppContent: React.FC = () => {
         </nav>
       </div>
 
-      <main className={`flex-1 transition-all duration-700 ${isMessenger ? 'pt-0' : 'pt-24 sm:pt-40 lg:pt-52'}`}>
-        <Routes>
-          <Route path="/" element={<Home onStart={() => { }} />} />
-          <Route path="/auth" element={user ? <Home onStart={() => { }} /> : <Auth onAuth={handleAuth} />} />
-          <Route path="/messenger" element={<Messenger />} />
-          <Route path="/media" element={<Media />} />
-          <Route path="/classroom" element={<Classroom />} />
-          <Route path="/library" element={<Library />} />
-          <Route path="/security" element={<Security />} />
-          <Route path="/profile" element={user ? <Profile onLogout={handleLogout} /> : <Auth onAuth={handleAuth} />} />
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
+      <main className={`flex-1 relative transition-all duration-700 ${isMessenger ? 'pt-0' : 'pt-24 sm:pt-40 lg:pt-52'}`}>
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route path="/" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <Home onStart={() => { }} />
+              </motion.div>
+            } />
+            <Route path="/auth" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                {user ? <Home onStart={() => { }} /> : <Auth onAuth={handleAuth} />}
+              </motion.div>
+            } />
+            <Route path="/messenger" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <Messenger />
+              </motion.div>
+            } />
+            <Route path="/media" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <Media />
+              </motion.div>
+            } />
+            <Route path="/classroom" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <Classroom />
+              </motion.div>
+            } />
+            <Route path="/library" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <Library />
+              </motion.div>
+            } />
+            <Route path="/security" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <Security />
+              </motion.div>
+            } />
+            <Route path="/profile" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                {user ? <Profile onLogout={handleLogout} /> : <Auth onAuth={handleAuth} />}
+              </motion.div>
+            } />
+            <Route path="/admin" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <Admin />
+              </motion.div>
+            } />
+          </Routes>
+        </AnimatePresence>
       </main>
 
-      {!hideBottomNav && <BottomNav theme={theme} />}
+      <AnimatePresence>
+        {!hideBottomNav && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            className="fixed bottom-0 z-[200] w-full flex justify-center pointer-events-none"
+          >
+            <div className="pointer-events-auto w-full flex justify-center">
+              <BottomNav theme={theme} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -48,12 +48,15 @@ export async function registerRoutes(
     
     const { message, systemInstruction } = req.body;
     try {
-        const response = await ai.getGenerativeModel({ 
+        const response = await ai.models.generateContent({
             model: "gemini-2.0-flash",
-            systemInstruction: systemInstruction || "Siz Honey platformasining aqlli yordamchisiz.",
-        }).generateContent(message);
+            contents: message,
+            config: {
+                systemInstruction: systemInstruction || "Siz Honey platformasining aqlli yordamchisiz.",
+            }
+        });
         
-        res.json({ text: response.response.text() });
+        res.json({ text: response.text });
     } catch (error: any) {
         console.error("Gemini Error:", error);
         res.status(500).json({ message: error.message });
@@ -65,15 +68,17 @@ export async function registerRoutes(
 
     const { query } = req.body;
     try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
-        const response = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: `Search for safe, educational content about: ${query}.` }] }],
-            tools: [{ googleSearchRetrieval: {} } as any]
+        const response = await ai.models.generateContent({
+            model: "gemini-2.0-flash",
+            contents: `Search for safe, educational content about: ${query}.`,
+            config: {
+                tools: [{ googleSearch: {} } as any]
+            }
         });
         
         res.json({ 
-            text: response.response.text(),
-            sources: (response.response as any).candidates?.[0]?.groundingMetadata?.groundingChunks || []
+            text: response.text,
+            sources: (response as any).candidates?.[0]?.groundingMetadata?.groundingChunks || []
         });
     } catch (error: any) {
         console.error("Search Error:", error);
@@ -85,9 +90,11 @@ export async function registerRoutes(
       if (!ai) return res.status(500).json({ message: "Gemini API key not configured" });
       const { text } = req.body;
       try {
-          const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
-          const response = await model.generateContent(`Quyidagi matnni tahrirlab ber: "${text}"`);
-          res.json({ text: response.response.text() });
+          const response = await ai.models.generateContent({
+              model: "gemini-2.0-flash",
+              contents: `Quyidagi matnni tahrirlab ber: "${text}"`
+          });
+          res.json({ text: response.text });
       } catch (error: any) {
           res.status(500).json({ message: error.message });
       }

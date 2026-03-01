@@ -11,22 +11,22 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
+    const [user] = await db!.select().from(users).where(eq(users.id, id));
     return user;
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
+    const [user] = await db!.select().from(users).where(eq(users.email, email));
     return user;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
+    const [user] = await db!.insert(users).values(insertUser).returning();
     return user;
   }
 
   async logChat(chat: InsertChatHistory): Promise<ChatHistory> {
-    const [entry] = await db.insert(chatHistory).values(chat).returning();
+    const [entry] = await db!.insert(chatHistory).values(chat).returning();
     return entry;
   }
 }
