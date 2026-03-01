@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from .models import BookModel, UserBookModel, CategoryModel, GenreModel
 from .serializers import BookSerializer, UserBookSerializer, DownloadBookSerializer, BookDetailSerializer, \
     CategorySerializer, GenreSerializer
@@ -187,6 +189,7 @@ class CategoryViewSet(viewsets.ViewSet):
         responses={200: CategorySerializer(many=True)},
         tags=["Categories"],
     )
+    @method_decorator(cache_page(60 * 15)) # Cache for 15 minutes
     def list(self, request):
         queryset = CategoryModel.objects.all()
         serializer = CategorySerializer(queryset, many=True, context={"request": request})
@@ -199,6 +202,7 @@ class GenreViewSet(viewsets.ViewSet):
         responses={200: GenreSerializer(many=True)},
         tags=["Genres"],
     )
+    @method_decorator(cache_page(60 * 15)) # Cache for 15 minutes
     def list(self, request):
         queryset = GenreModel.objects.all()
         serializer = GenreSerializer(queryset, many=True, context={"request": request})

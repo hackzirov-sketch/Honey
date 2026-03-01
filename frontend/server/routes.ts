@@ -4,6 +4,14 @@ import { storage } from "./storage";
 import { insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 import { GoogleGenAI } from "@google/genai";
+import rateLimit from "express-rate-limit";
+
+// Rate limiting for AI endpoints
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30, // Limit each IP to 30 AI requests per windowMs
+  message: { message: "Siz juda ko'p so'rov yubordingiz. Iltimos birozdan so'ng qayta urinib ko'ring." },
+});
 
 // Initialize Gemini
 const apiKey = process.env.GEMINI_API_KEY;
@@ -43,10 +51,13 @@ export async function registerRoutes(
     res.json(user);
   });
 
-  app.post("/api/chat", async (req, res) => {
+  app.post("/api/chat", aiLimiter, async (req, res) => {
     if (!ai) return res.status(500).json({ message: "Gemini API key not configured" });
     
     const { message, systemInstruction } = req.body;
+    if (!message || typeof message !== "string" || message.length > 2000) {
+        return res.status(400).json({ message: "Yaroqsiz so'rov xabari (maksimal 2000 belgi)" });
+    }
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.0-flash",
@@ -63,10 +74,13 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/search", async (req, res) => {
+  app.post("/api/search", aiLimiter, async (req, res) => {
     if (!ai) return res.status(500).json({ message: "Gemini API key not configured" });
 
     const { query } = req.body;
+    if (!query || typeof query !== "string" || query.length > 500) {
+        return res.status(400).json({ message: "Yaroqsiz so'rov xabari (maksimal 500 belgi)" });
+    }
     try {
         const response = await ai.models.generateContent({
             model: "gemini-2.0-flash",
@@ -86,9 +100,12 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/improve", async (req, res) => {
+  app.post("/api/improve", aiLimiter, async (req, res) => {
       if (!ai) return res.status(500).json({ message: "Gemini API key not configured" });
       const { text } = req.body;
+      if (!text || typeof text !== "string" || text.length > 3000) {
+          return res.status(400).json({ message: "Yaroqsiz so'rov xabari (maksimal 3000 belgi)" });
+      }
       try {
           const response = await ai.models.generateContent({
               model: "gemini-2.0-flash",
