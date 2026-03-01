@@ -12,6 +12,7 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Auth from './pages/Auth';
 import { API_BASE_URL, API_ENDPOINTS, setAuthToken, clearAuthTokens } from './config/api.config';
+import { ErrorBoundary } from './components/ui/ErrorBoundary';
 
 const ThemeToggle = ({ theme, setTheme }: { theme: 'dark' | 'light', setTheme: (t: 'dark' | 'light') => void }) => {
   return (
@@ -340,9 +341,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
-      <AppContent />
-    </HashRouter>
+    <ErrorBoundary>
+      <HashRouter>
+        <AppContent />
+      </HashRouter>
+    </ErrorBoundary>
   );
 };
 

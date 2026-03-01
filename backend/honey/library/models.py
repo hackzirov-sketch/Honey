@@ -39,15 +39,15 @@ class BookModel(BaseModel):
     description = models.TextField()
     genre = models.ForeignKey(GenreModel, on_delete=models.CASCADE, related_name="book_genre")
     category = models.ForeignKey(CategoryModel, on_delete=models.CASCADE, related_name="book_category")
-    year = models.PositiveIntegerField()
-    language = models.CharField(max_length=20, choices=BookLanguageChoices.choices, default=BookLanguageChoices.EN)
+    year = models.PositiveIntegerField(db_index=True)
+    language = models.CharField(max_length=20, choices=BookLanguageChoices.choices, default=BookLanguageChoices.EN, db_index=True)
     pages = models.PositiveIntegerField()
     image = models.ImageField(upload_to="book/image")
     file = models.FileField(upload_to="book/files/", blank=True, null=True) # Mana bu PDF uchun
     youtube_url = models.URLField(blank=True, null=True)
     library_url = models.URLField(blank=True, null=True)
     store_url = models.URLField(blank=True, null=True)
-    is_premium = models.BooleanField(default=False)
+    is_premium = models.BooleanField(default=False, db_index=True)
 
     def __str__(self):
         return f"{self.title} ({self.author})"
@@ -67,7 +67,7 @@ class UserBookModel(BaseModel):
     user = models.ForeignKey(UserModel, on_delete=models.CASCADE, related_name="user_books")
     book = models.ForeignKey(BookModel, on_delete=models.CASCADE, related_name="downloaded_by")
     downloaded_at = models.DateTimeField(auto_now_add=True)
-    is_read = models.BooleanField(default=False)
+    is_read = models.BooleanField(default=False, db_index=True)
 
     class Meta:
         db_table = "user_book"
