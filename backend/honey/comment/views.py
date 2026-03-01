@@ -10,8 +10,27 @@ from comment.serializers import (
 )
 
 
+from drf_yasg import openapi
+
 class BookRatingViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="List book ratings",
+        manual_parameters=[
+            openapi.Parameter('book_id', openapi.IN_QUERY, type=openapi.TYPE_INTEGER, required=True)
+        ],
+        responses={200: BookRatingSerializer(many=True), 400: "Bad Request"},
+        tags=["Reviews"],
+    )
+    def list(self, request):
+        book_id = request.query_params.get("book_id")
+        if not book_id:
+            return Response({"detail": "book_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        ratings = BookRatingModel.objects.filter(book_id=book_id).select_related("user")
+        serializer = BookRatingSerializer(ratings, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         operation_summary="Create book rating",
@@ -39,9 +58,63 @@ class BookRatingViewSet(viewsets.ViewSet):
         out_serializer = BookRatingSerializer(rating, context={"request": request})
         return Response(out_serializer.data, status=status.HTTP_201_CREATED)
 
+    @swagger_auto_schema(
+        operation_summary="Update book rating",
+        request_body=CreateBookRatingSerializer,
+        responses={200: BookRatingSerializer(), 403: "Forbidden", 404: "Not found"},
+        tags=["Reviews"],
+    )
+    def partial_update(self, request, pk=None):
+        rating = BookRatingModel.objects.filter(pk=pk).first()
+        if not rating:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if rating.user != request.user:
+            return Response({"detail": "You do not have permission to edit this rating"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CreateBookRatingSerializer(rating, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        out_serializer = BookRatingSerializer(rating, context={"request": request})
+        return Response(out_serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="Delete book rating",
+        responses={204: "Deleted", 403: "Forbidden", 404: "Not found"},
+        tags=["Reviews"],
+    )
+    def destroy(self, request, pk=None):
+        rating = BookRatingModel.objects.filter(pk=pk).first()
+        if not rating:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if rating.user != request.user and not request.user.is_staff:
+            return Response({"detail": "You do not have permission to delete this rating"}, status=status.HTTP_403_FORBIDDEN)
+
+        rating.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class BookCommentViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="List book reviews",
+        manual_parameters=[
+            openapi.Parameter('book_id', openapi.IN_QUERY, type=openapi.TYPE_INTEGER, required=True)
+        ],
+        responses={200: BookReviewSerializer(many=True), 400: "Bad Request"},
+        tags=["Reviews"],
+    )
+    def list(self, request):
+        book_id = request.query_params.get("book_id")
+        if not book_id:
+            return Response({"detail": "book_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        reviews = BookReviewModel.objects.filter(book_id=book_id).select_related("user")
+        serializer = BookReviewSerializer(reviews, many=True, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         operation_summary="Create book review",
@@ -59,6 +132,43 @@ class BookCommentViewSet(viewsets.ViewSet):
         )
         serializer = BookReviewSerializer(review, context={"request": request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @swagger_auto_schema(
+        operation_summary="Update book review",
+        request_body=CreateBookReviewSerializer,
+        responses={200: BookReviewSerializer(), 403: "Forbidden", 404: "Not found"},
+        tags=["Reviews"],
+    )
+    def partial_update(self, request, pk=None):
+        review = BookReviewModel.objects.filter(pk=pk).first()
+        if not review:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if review.user != request.user:
+            return Response({"detail": "You do not have permission to edit this review"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CreateBookReviewSerializer(review, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        out_serializer = BookReviewSerializer(review, context={"request": request})
+        return Response(out_serializer.data, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="Delete book review",
+        responses={204: "Deleted", 403: "Forbidden", 404: "Not found"},
+        tags=["Reviews"],
+    )
+    def destroy(self, request, pk=None):
+        review = BookReviewModel.objects.filter(pk=pk).first()
+        if not review:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if review.user != request.user and not request.user.is_staff:
+            return Response({"detail": "You do not have permission to delete this review"}, status=status.HTTP_403_FORBIDDEN)
+
+        review.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class BookLikeViewSet(viewsets.ViewSet):
