@@ -73,6 +73,94 @@ const Admin: React.FC = () => {
         }
     };
 
+    // --- Foydalanuvchi yaratish / tahrirlash modali holati ---
+    type UserFormState = {
+        username: string;
+        email: string;
+        phone: string;
+        name: string;
+        password: string;
+        is_verified: boolean;
+        is_staff: boolean;
+        is_superuser: boolean;
+    };
+    const emptyForm: UserFormState = {
+        username: '', email: '', phone: '', name: '', password: '',
+        is_verified: true, is_staff: false, is_superuser: false,
+    };
+    const [userModalOpen, setUserModalOpen] = useState(false);
+    const [userModalMode, setUserModalMode] = useState<'create' | 'edit'>('create');
+    const [editingUserId, setEditingUserId] = useState<string | null>(null);
+    const [userForm, setUserForm] = useState<UserFormState>(emptyForm);
+    const [userFormBusy, setUserFormBusy] = useState(false);
+
+    const openCreateUser = () => {
+        setUserModalMode('create');
+        setEditingUserId(null);
+        setUserForm(emptyForm);
+        setUserModalOpen(true);
+    };
+
+    const openEditUser = (u: any) => {
+        setUserModalMode('edit');
+        setEditingUserId(u.id);
+        setUserForm({
+            username: u.username || '',
+            email: u.email || '',
+            phone: u.phone || '',
+            name: u.name || '',
+            password: '',
+            is_verified: !!u.is_verified,
+            is_staff: !!u.is_staff,
+            is_superuser: !!u.is_superuser,
+        });
+        setUserModalOpen(true);
+    };
+
+    const submitUserForm = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setUserFormBusy(true);
+        try {
+            const isCreate = userModalMode === 'create';
+            const url = isCreate
+                ? `${API_BASE_URL}${API_ENDPOINTS.ADMIN.USERS}`
+                : `${API_BASE_URL}${API_ENDPOINTS.ADMIN.USER_UPDATE(editingUserId!)}`;
+
+            const body: any = {
+                username: userForm.username.trim(),
+                email: userForm.email.trim(),
+                phone: userForm.phone.trim() || null,
+                name: userForm.name.trim() || userForm.username.trim(),
+                is_verified: userForm.is_verified,
+                is_staff: userForm.is_staff,
+                is_superuser: userForm.is_superuser,
+            };
+            if (userForm.password) body.password = userForm.password;
+            if (isCreate && !userForm.password) {
+                alert('Yangi foydalanuvchi uchun parol kiriting');
+                setUserFormBusy(false);
+                return;
+            }
+
+            const res = await fetch(url, {
+                method: isCreate ? 'POST' : 'PATCH',
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                body: JSON.stringify(body),
+            });
+            if (res.ok) {
+                setUserModalOpen(false);
+                await fetchAdminData();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                alert(`Xato: ${err.message || err.detail || res.status}`);
+            }
+        } catch (err: any) {
+            alert(`Xato: ${err?.message || 'Server bilan aloqa yo\'q'}`);
+        } finally {
+            setUserFormBusy(false);
+        }
+    };
+
     const deletePending = async (id: string, email: string) => {
         if (!confirm(`"${email}" tasdiqlanmagan ro'yxatdan o'tishni o'chirmoqchimisiz?`)) return;
         const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ADMIN.PENDING_DELETE(id)}`, {
@@ -361,13 +449,22 @@ const Admin: React.FC = () => {
                     )}
 
                     <div className="glass p-6 md:p-8 rounded-3xl">
-                        <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
                             <h2 className="text-xl font-black uppercase tracking-widest text-honey">
                                 <i className="fas fa-users mr-3"></i>Foydalanuvchilar ({adminUsers.length})
                             </h2>
-                            <button onClick={fetchAdminData} className="text-xs text-gray-400 hover:text-honey" data-testid="button-refresh-users">
-                                <i className={`fas fa-rotate ${adminLoading ? 'fa-spin' : ''}`}></i>
-                            </button>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={openCreateUser}
+                                    className="px-4 py-2 rounded-xl bg-honey text-black font-black text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-honey/20"
+                                    data-testid="button-create-user"
+                                >
+                                    <i className="fas fa-user-plus mr-2"></i>Yangi yaratish
+                                </button>
+                                <button onClick={fetchAdminData} className="text-xs text-gray-400 hover:text-honey" data-testid="button-refresh-users">
+                                    <i className={`fas fa-rotate ${adminLoading ? 'fa-spin' : ''}`}></i>
+                                </button>
+                            </div>
                         </div>
                         {adminUsers.length === 0 ? (
                             <p className="text-center text-gray-500 py-6">Hech kim yo'q</p>
@@ -390,8 +487,15 @@ const Admin: React.FC = () => {
                                                 {u.phone && <div className="text-xs text-gray-500 truncate">{u.phone}</div>}
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-3 text-xs text-gray-500 md:text-right shrink-0">
-                                            <span className="hidden md:inline">{new Date(u.created_at).toLocaleDateString('uz-UZ')}</span>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 md:text-right shrink-0 flex-wrap">
+                                            <span className="hidden md:inline mr-1">{new Date(u.created_at).toLocaleDateString('uz-UZ')}</span>
+                                            <button
+                                                onClick={() => openEditUser(u)}
+                                                data-testid={`button-edit-user-${u.id}`}
+                                                className="px-4 py-2 rounded-xl bg-honey/10 hover:bg-honey/20 text-honey text-xs font-bold uppercase tracking-widest transition-all"
+                                            >
+                                                <i className="fas fa-pen mr-2"></i>Tahrir
+                                            </button>
                                             <button
                                                 onClick={() => deleteUser(u.id, u.username)}
                                                 disabled={u.is_superuser || u.id === user.id}
@@ -444,6 +548,145 @@ const Admin: React.FC = () => {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {userModalOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+                    onClick={() => !userFormBusy && setUserModalOpen(false)}
+                    data-testid="modal-user-form"
+                >
+                    <form
+                        onSubmit={submitUserForm}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full max-w-lg glass border border-white/10 rounded-3xl p-6 md:p-8 space-y-5 max-h-[90vh] overflow-y-auto"
+                    >
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-lg font-black uppercase tracking-widest text-honey">
+                                <i className={`fas ${userModalMode === 'create' ? 'fa-user-plus' : 'fa-user-pen'} mr-3`}></i>
+                                {userModalMode === 'create' ? "Yangi foydalanuvchi" : "Tahrirlash"}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setUserModalOpen(false)}
+                                className="text-gray-400 hover:text-white text-xl"
+                                data-testid="button-close-user-modal"
+                            >
+                                <i className="fas fa-xmark"></i>
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-gray-400 mb-1 text-[10px] font-black uppercase tracking-widest">Username *</label>
+                                <input
+                                    value={userForm.username}
+                                    onChange={e => setUserForm({ ...userForm, username: e.target.value })}
+                                    required minLength={3}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-honey outline-none text-sm"
+                                    data-testid="input-user-username"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-gray-400 mb-1 text-[10px] font-black uppercase tracking-widest">Ism</label>
+                                <input
+                                    value={userForm.name}
+                                    onChange={e => setUserForm({ ...userForm, name: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-honey outline-none text-sm"
+                                    data-testid="input-user-name"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-gray-400 mb-1 text-[10px] font-black uppercase tracking-widest">Email *</label>
+                            <input
+                                type="email"
+                                value={userForm.email}
+                                onChange={e => setUserForm({ ...userForm, email: e.target.value })}
+                                required
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-honey outline-none text-sm"
+                                data-testid="input-user-email"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-gray-400 mb-1 text-[10px] font-black uppercase tracking-widest">Telefon</label>
+                            <input
+                                value={userForm.phone}
+                                onChange={e => setUserForm({ ...userForm, phone: e.target.value })}
+                                placeholder="+998 ..."
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-honey outline-none text-sm"
+                                data-testid="input-user-phone"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-gray-400 mb-1 text-[10px] font-black uppercase tracking-widest">
+                                {userModalMode === 'create' ? "Parol *" : "Yangi parol (bo'sh qoldirsangiz o'zgarmaydi)"}
+                            </label>
+                            <input
+                                type="text"
+                                value={userForm.password}
+                                onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                                placeholder={userModalMode === 'create' ? "Kamida 6 ta belgi" : "•••••• (o'zgartirish uchun yozing)"}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-honey outline-none text-sm font-mono"
+                                data-testid="input-user-password"
+                            />
+                        </div>
+
+                        <div className="space-y-2 bg-black/20 rounded-2xl p-4 border border-white/5">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Huquqlar</div>
+                            {[
+                                { key: 'is_verified', label: 'Tasdiqlangan', icon: 'fa-circle-check' },
+                                { key: 'is_staff', label: 'Admin (staff)', icon: 'fa-user-shield' },
+                                { key: 'is_superuser', label: 'Superuser', icon: 'fa-crown' },
+                            ].map(opt => (
+                                <label key={opt.key} className="flex items-center gap-3 cursor-pointer hover:bg-white/5 rounded-xl px-3 py-2 transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={(userForm as any)[opt.key]}
+                                        onChange={e => setUserForm({
+                                            ...userForm,
+                                            [opt.key]: e.target.checked,
+                                            ...(opt.key === 'is_superuser' && e.target.checked ? { is_staff: true } : {}),
+                                        })}
+                                        disabled={opt.key === 'is_superuser' && !user.is_superuser}
+                                        className="w-4 h-4 accent-honey"
+                                        data-testid={`checkbox-${opt.key}`}
+                                    />
+                                    <i className={`fas ${opt.icon} text-honey w-4`}></i>
+                                    <span className="text-sm text-white">{opt.label}</span>
+                                </label>
+                            ))}
+                            {!user.is_superuser && (
+                                <p className="text-[10px] text-gray-500 mt-2">Superuser huquqini faqat boshqa superuser o'zgartira oladi.</p>
+                            )}
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setUserModalOpen(false)}
+                                disabled={userFormBusy}
+                                className="flex-1 px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-xs uppercase tracking-widest transition-all"
+                                data-testid="button-cancel-user-form"
+                            >
+                                Bekor qilish
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={userFormBusy}
+                                className="flex-1 px-5 py-3 rounded-2xl bg-honey text-black font-black text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all shadow-lg shadow-honey/20"
+                                data-testid="button-submit-user-form"
+                            >
+                                {userFormBusy
+                                    ? <><i className="fas fa-spinner fa-spin mr-2"></i>Saqlanmoqda...</>
+                                    : userModalMode === 'create' ? "Yaratish" : "Saqlash"}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>

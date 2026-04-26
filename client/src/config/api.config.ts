@@ -93,8 +93,9 @@ export const API_ENDPOINTS = {
 
     // --- Admin ---
     ADMIN: {
-        USERS: "/api/v1/admin/users/",                           // GET
+        USERS: "/api/v1/admin/users/",                              // GET, POST
         USER_DELETE: (id: string) => `/api/v1/admin/users/${id}/`,  // DELETE
+        USER_UPDATE: (id: string) => `/api/v1/admin/users/${id}/`,  // PATCH
         PENDING: "/api/v1/admin/pending-registrations/",         // GET
         PENDING_DELETE: (id: string) => `/api/v1/admin/pending-registrations/${id}/`, // DELETE
         STATS: "/api/v1/admin/stats/",                            // GET

@@ -1,7 +1,10 @@
 import { Router } from "express";
-import { sqlite } from "../../core/db";
+import bcrypt from "bcryptjs";
+import { createId, nowIso, sqlite } from "../../core/db";
 import { asyncHandler, HttpError } from "../../core/http";
 import { authRequired, staffRequired } from "../../core/middleware";
+
+const PUBLIC_USER_FIELDS = "id, username, name, email, phone, avatar, picture, is_verified, is_staff, is_superuser, created_at";
 
 function deleteUserCascade(userId: string) {
   const ph = "?";
@@ -49,11 +52,119 @@ export function adminRoutes() {
 
   router.get("/users/", asyncHandler(async (_req, res) => {
     const rows = sqlite.prepare(`
-      SELECT id, username, name, email, phone, avatar, picture, is_verified, is_staff, is_superuser, created_at
+      SELECT ${PUBLIC_USER_FIELDS}
       FROM users
       ORDER BY created_at DESC
     `).all();
     res.json(rows);
+  }));
+
+  router.post("/users/", asyncHandler(async (req, res) => {
+    const { username, email, password, phone, name, is_staff, is_superuser, is_verified } = req.body || {};
+
+    if (!username || typeof username !== "string" || username.trim().length < 3) {
+      throw new HttpError(400, "Username kamida 3 ta belgi");
+    }
+    if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new HttpError(400, "Email noto'g'ri");
+    }
+    if (!password || typeof password !== "string" || password.length < 6) {
+      throw new HttpError(400, "Parol kamida 6 ta belgi");
+    }
+
+    const cleanUsername = username.trim();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (sqlite.prepare("SELECT id FROM users WHERE LOWER(email) = ?").get(cleanEmail)) {
+      throw new HttpError(400, "Email allaqachon mavjud");
+    }
+    if (sqlite.prepare("SELECT id FROM users WHERE username = ?").get(cleanUsername)) {
+      throw new HttpError(400, "Username allaqachon mavjud");
+    }
+    if (is_superuser && !req.user!.is_superuser) {
+      throw new HttpError(403, "Faqat superuser yangi superuser yarata oladi");
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const id = createId("usr");
+    const now = nowIso();
+    sqlite.prepare(`
+      INSERT INTO users (id, username, name, email, phone, password_hash, is_verified, is_staff, is_superuser, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      cleanUsername,
+      (name && String(name).trim()) || cleanUsername,
+      cleanEmail,
+      phone || null,
+      passwordHash,
+      is_verified === false ? 0 : 1,
+      is_staff ? 1 : 0,
+      is_superuser ? 1 : 0,
+      now,
+      now,
+    );
+    const created = sqlite.prepare(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`).get(id);
+    res.status(201).json(created);
+  }));
+
+  router.patch("/users/:id/", asyncHandler(async (req, res) => {
+    const id = req.params.id;
+    const target = sqlite.prepare("SELECT * FROM users WHERE id = ?").get(id) as any;
+    if (!target) throw new HttpError(404, "Foydalanuvchi topilmadi");
+
+    const { username, email, phone, name, is_staff, is_superuser, is_verified, password } = req.body || {};
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    if (username !== undefined) {
+      const u = String(username).trim();
+      if (u.length < 3) throw new HttpError(400, "Username kamida 3 ta belgi");
+      if (u !== target.username) {
+        if (sqlite.prepare("SELECT id FROM users WHERE username = ? AND id != ?").get(u, id)) {
+          throw new HttpError(400, "Username band");
+        }
+        updates.push("username = ?"); values.push(u);
+      }
+    }
+    if (email !== undefined) {
+      const e = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw new HttpError(400, "Email noto'g'ri");
+      if (e !== String(target.email).toLowerCase()) {
+        if (sqlite.prepare("SELECT id FROM users WHERE LOWER(email) = ? AND id != ?").get(e, id)) {
+          throw new HttpError(400, "Email band");
+        }
+        updates.push("email = ?"); values.push(e);
+      }
+    }
+    if (phone !== undefined) { updates.push("phone = ?"); values.push(phone || null); }
+    if (name !== undefined) { updates.push("name = ?"); values.push(String(name).trim() || target.username); }
+    if (typeof is_verified === "boolean") {
+      updates.push("is_verified = ?"); values.push(is_verified ? 1 : 0);
+    }
+    if (typeof is_staff === "boolean") {
+      if (target.is_superuser && !is_staff) throw new HttpError(400, "Superuserdan staff huquqini olib bo'lmaydi");
+      updates.push("is_staff = ?"); values.push(is_staff ? 1 : 0);
+    }
+    if (typeof is_superuser === "boolean") {
+      if (!req.user!.is_superuser) throw new HttpError(403, "Faqat superuser superuser huquqini o'zgartira oladi");
+      if (req.user!.id === id && !is_superuser) throw new HttpError(400, "O'zingizdan superuser huquqini olib tashlay olmaysiz");
+      updates.push("is_superuser = ?"); values.push(is_superuser ? 1 : 0);
+      if (is_superuser) { updates.push("is_staff = ?"); values.push(1); }
+    }
+    if (password !== undefined && password !== "" && password !== null) {
+      if (String(password).length < 6) throw new HttpError(400, "Parol kamida 6 ta belgi");
+      updates.push("password_hash = ?"); values.push(await bcrypt.hash(String(password), 12));
+    }
+
+    if (updates.length > 0) {
+      updates.push("updated_at = ?"); values.push(nowIso());
+      values.push(id);
+      sqlite.prepare(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`).run(...values);
+    }
+
+    const updated = sqlite.prepare(`SELECT ${PUBLIC_USER_FIELDS} FROM users WHERE id = ?`).get(id);
+    res.json(updated);
   }));
 
   router.delete("/users/:id/", asyncHandler(async (req, res) => {
