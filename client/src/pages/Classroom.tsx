@@ -1,7 +1,38 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE_URL, API_ENDPOINTS, getAuthToken, authHeaders } from '@/config/api.config';
 import { resolveAvatar } from '@/lib/utils';
+import { getLiveSocket, disconnectLiveSocket } from '@/lib/liveSocket';
+
+const ICE_SERVERS: RTCConfiguration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
+};
+
+interface RemotePeer {
+  userId: string;
+  stream: MediaStream;
+}
+
+const RemoteVideo: React.FC<{ stream: MediaStream; muted?: boolean; className?: string; mirror?: boolean }> = ({ stream, muted = false, className = '', mirror = false }) => {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current && ref.current.srcObject !== stream) {
+      ref.current.srcObject = stream;
+    }
+  }, [stream]);
+  return (
+    <video
+      ref={ref}
+      autoPlay
+      playsInline
+      muted={muted}
+      className={`${mirror ? 'mirror-mode' : ''} ${className}`}
+    />
+  );
+};
 
 interface LiveSession {
   id: string;
@@ -134,6 +165,12 @@ const Classroom: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeer>>(new Map());
+  const peersRef = useRef<Map<string, { userId: string; pc: RTCPeerConnection; stream: MediaStream }>>(new Map());
+  const socketRef = useRef<any>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => { localStreamRef.current = localStream; }, [localStream]);
 
   useEffect(() => {
     return () => {
@@ -180,6 +217,172 @@ const Classroom: React.FC = () => {
       requestPermissions();
     }
   }, [participants, activeSession]);
+
+  // ---------- WebRTC mesh signaling ----------
+  const isStreamerEarly = activeSession?.streamer?.id === user?.id || activeSession?.streamer?.username === user?.username;
+  const myParticipantEarly = participants.find(p => p.user?.id === user?.id || p.user?.username === user?.username);
+  const isApprovedEarly = isStreamerEarly || myParticipantEarly?.status === 'approved';
+  const rtcReady = !!activeSession && !!isApprovedEarly && (!!localStream || !!permissionError);
+
+  const createPeerConnection = useCallback((peerSocketId: string, peerUserId: string, initiator: boolean) => {
+    if (peersRef.current.has(peerSocketId)) {
+      return peersRef.current.get(peerSocketId)!.pc;
+    }
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const remoteStream = new MediaStream();
+    peersRef.current.set(peerSocketId, { userId: peerUserId, pc, stream: remoteStream });
+
+    // Add our local tracks if we have a stream
+    const localStreamNow = localStreamRef.current;
+    if (localStreamNow) {
+      localStreamNow.getTracks().forEach(track => {
+        try { pc.addTrack(track, localStreamNow); } catch (e) { console.warn('addTrack failed', e); }
+      });
+    }
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate && socketRef.current) {
+        socketRef.current.emit('live_signal', {
+          to: peerSocketId,
+          data: { type: 'ice', candidate: e.candidate },
+        });
+      }
+    };
+
+    pc.ontrack = (e) => {
+      const incoming = e.streams && e.streams[0] ? e.streams[0] : null;
+      if (incoming) {
+        incoming.getTracks().forEach(t => {
+          if (!remoteStream.getTracks().find(existing => existing.id === t.id)) {
+            remoteStream.addTrack(t);
+          }
+        });
+      } else {
+        remoteStream.addTrack(e.track);
+      }
+      setRemotePeers(prev => {
+        const next = new Map(prev);
+        next.set(peerSocketId, { userId: peerUserId, stream: remoteStream });
+        return next;
+      });
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        const entry = peersRef.current.get(peerSocketId);
+        if (entry) {
+          try { entry.pc.close(); } catch {}
+          peersRef.current.delete(peerSocketId);
+        }
+        setRemotePeers(prev => {
+          const next = new Map(prev);
+          next.delete(peerSocketId);
+          return next;
+        });
+      }
+    };
+
+    if (initiator) {
+      (async () => {
+        try {
+          const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+          await pc.setLocalDescription(offer);
+          socketRef.current?.emit('live_signal', {
+            to: peerSocketId,
+            data: { type: 'offer', sdp: offer },
+          });
+        } catch (err) {
+          console.error('createOffer failed', err);
+        }
+      })();
+    }
+
+    return pc;
+  }, []);
+
+  useEffect(() => {
+    if (!rtcReady || !activeSession) return;
+    let cancelled = false;
+    let socket: any = null;
+    const sessionId = activeSession.id;
+
+    const cleanupPeer = (peerSocketId: string) => {
+      const entry = peersRef.current.get(peerSocketId);
+      if (entry) {
+        try { entry.pc.close(); } catch {}
+        peersRef.current.delete(peerSocketId);
+      }
+      setRemotePeers(prev => {
+        const next = new Map(prev);
+        next.delete(peerSocketId);
+        return next;
+      });
+    };
+
+    (async () => {
+      try {
+        socket = await getLiveSocket();
+        if (cancelled) return;
+        socketRef.current = socket;
+
+        socket.on('live_existing_peers', (peers: { socketId: string; userId: string }[]) => {
+          peers.forEach(({ socketId, userId }) => {
+            createPeerConnection(socketId, userId, true);
+          });
+        });
+
+        socket.on('live_peer_joined', ({ socketId, userId }: { socketId: string; userId: string }) => {
+          createPeerConnection(socketId, userId, false);
+        });
+
+        socket.on('live_signal', async ({ from, fromUserId, data }: { from: string; fromUserId: string; data: any }) => {
+          let entry = peersRef.current.get(from);
+          if (!entry) {
+            createPeerConnection(from, fromUserId, false);
+            entry = peersRef.current.get(from)!;
+          }
+          const pc = entry.pc;
+          try {
+            if (data.type === 'offer') {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              socket.emit('live_signal', { to: from, data: { type: 'answer', sdp: answer } });
+            } else if (data.type === 'answer') {
+              await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            } else if (data.type === 'ice' && data.candidate) {
+              try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (err) { console.warn('addIceCandidate failed', err); }
+            }
+          } catch (err) {
+            console.error('live_signal handler error', err);
+          }
+        });
+
+        socket.on('live_peer_left', ({ socketId }: { socketId: string }) => {
+          cleanupPeer(socketId);
+        });
+
+        socket.emit('live_join', { sessionId });
+      } catch (err) {
+        console.error('Live socket setup failed', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (socket) {
+        try { socket.emit('live_leave'); } catch {}
+        socket.off('live_existing_peers');
+        socket.off('live_peer_joined');
+        socket.off('live_signal');
+        socket.off('live_peer_left');
+      }
+      peersRef.current.forEach(({ pc }) => { try { pc.close(); } catch {} });
+      peersRef.current.clear();
+      setRemotePeers(new Map());
+      socketRef.current = null;
+    };
+  }, [rtcReady, activeSession?.id, createPeerConnection]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -574,15 +777,35 @@ const Classroom: React.FC = () => {
                     </div>
                   )}
                 </>
-              ) : (
-                <div className="flex flex-col items-center gap-4 p-6 text-center">
-                  <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-honey/40 shadow-2xl bg-white">
-                    <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+              ) : (() => {
+                const streamerEntry = Array.from(remotePeers.values()).find(p => p.userId === activeSession.streamer?.id);
+                const hasVideo = streamerEntry && streamerEntry.stream.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+                if (streamerEntry) {
+                  return (
+                    <>
+                      <RemoteVideo stream={streamerEntry.stream} className={`w-full h-full object-cover ${hasVideo ? 'opacity-100' : 'opacity-0'}`} />
+                      {!hasVideo && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
+                          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-honey/40 shadow-2xl bg-white">
+                            <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+                          </div>
+                          <p className="text-white font-bold text-base sm:text-lg">{activeSession.streamer?.username}</p>
+                          <p className="text-white/50 text-xs sm:text-sm mt-1">Kamera o'chirilgan</p>
+                        </div>
+                      )}
+                    </>
+                  );
+                }
+                return (
+                  <div className="flex flex-col items-center gap-4 p-6 text-center">
+                    <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-honey/40 shadow-2xl bg-white">
+                      <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+                    </div>
+                    <p className="text-white font-bold text-lg">{activeSession.streamer?.username}</p>
+                    <p className="text-white/50 text-xs">Mentor ulanmoqda...</p>
                   </div>
-                  <p className="text-white font-bold text-lg">{activeSession.streamer?.username}</p>
-                  <p className="text-white/50 text-xs">Mentor</p>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Speaker name plate (bottom-left) */}
               <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-2 bg-black/55 backdrop-blur-md px-3 py-1.5 rounded-md">
@@ -592,6 +815,39 @@ const Classroom: React.FC = () => {
                 </span>
               </div>
             </div>
+
+            {/* Other participants' video tiles (excluding the streamer who's already in main view, and self) */}
+            {(() => {
+              const others = Array.from(remotePeers.entries())
+                .filter(([_, p]) => p.userId !== activeSession.streamer?.id);
+              if (others.length === 0) return null;
+              return (
+                <div className="absolute top-14 left-3 sm:left-5 z-[140] flex flex-col gap-2 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                  {others.map(([sid, p]) => {
+                    const partInfo = participants.find(pp => pp.user?.id === p.userId);
+                    const username = partInfo?.user?.username || 'Mehmon';
+                    const avatar = partInfo?.user?.avatar;
+                    const hasVideo = p.stream.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+                    return (
+                      <div key={sid} className="relative w-24 h-32 sm:w-32 sm:h-40 rounded-xl overflow-hidden border border-white/15 shadow-2xl bg-[#2a2a2a]">
+                        <RemoteVideo stream={p.stream} className={`w-full h-full object-cover ${hasVideo ? 'opacity-100' : 'opacity-0'}`} />
+                        {!hasVideo && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-center p-2">
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-white">
+                              <img src={resolveAvatar(avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+                            </div>
+                            <p className="text-white/70 text-[9px] sm:text-[10px] font-semibold leading-tight">Kamera o'chiq</p>
+                          </div>
+                        )}
+                        <div className="absolute bottom-1 left-1 right-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                          <span className="text-white text-[10px] font-semibold truncate block">{username}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             {/* Self-view PiP (only for non-streamer to see themselves) */}
             {!isStreamer && (

@@ -51,6 +51,56 @@ export function setupSocket(httpServer: HttpServer) {
         socket.emit("error", { message: error.message || "live_send failed" });
       }
     });
+
+    // ---------- Live WebRTC signaling (mesh) ----------
+    socket.on("live_join", ({ sessionId }: { sessionId: string }) => {
+      if (!sessionId) return;
+      const room = `live:rtc:${sessionId}`;
+
+      // Existing peers in the room (excluding self)
+      const peers = Array.from(io.sockets.adapter.rooms.get(room) || [])
+        .filter((sid) => sid !== socket.id)
+        .map((sid) => {
+          const s = io.sockets.sockets.get(sid);
+          return { socketId: sid, userId: s?.data?.userId };
+        });
+
+      socket.join(room);
+      socket.data.liveSessionId = sessionId;
+
+      // Tell the newcomer who is already there
+      socket.emit("live_existing_peers", peers);
+      // Tell the rest that someone new joined
+      socket.to(room).emit("live_peer_joined", { socketId: socket.id, userId: socket.data.userId });
+    });
+
+    socket.on("live_signal", ({ to, data }: { to: string; data: any }) => {
+      if (!to) return;
+      io.to(to).emit("live_signal", { from: socket.id, fromUserId: socket.data.userId, data });
+    });
+
+    socket.on("live_state", ({ sessionId, isMuted, isCameraOff }: { sessionId: string; isMuted?: boolean; isCameraOff?: boolean }) => {
+      if (!sessionId) return;
+      const room = `live:rtc:${sessionId}`;
+      socket.to(room).emit("live_peer_state", {
+        socketId: socket.id,
+        userId: socket.data.userId,
+        isMuted: !!isMuted,
+        isCameraOff: !!isCameraOff,
+      });
+    });
+
+    const leaveLiveRoom = () => {
+      const sid = socket.data.liveSessionId;
+      if (!sid) return;
+      const room = `live:rtc:${sid}`;
+      socket.to(room).emit("live_peer_left", { socketId: socket.id, userId: socket.data.userId });
+      socket.leave(room);
+      socket.data.liveSessionId = null;
+    };
+
+    socket.on("live_leave", leaveLiveRoom);
+    socket.on("disconnect", leaveLiveRoom);
   });
 
   return io;
