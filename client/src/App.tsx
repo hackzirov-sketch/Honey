@@ -13,6 +13,7 @@ import Admin from './pages/Admin';
 import Auth from './pages/Auth';
 import { API_BASE_URL, API_ENDPOINTS, setAuthToken, clearAuthTokens } from './config/api.config';
 import { ErrorBoundary } from './components/ui/ErrorBoundary';
+import { resolveAvatar } from './lib/utils';
 
 const ThemeToggle = ({ theme, setTheme }: { theme: 'dark' | 'light', setTheme: (t: 'dark' | 'light') => void }) => {
   return (
@@ -256,8 +257,8 @@ const AppContent: React.FC = () => {
 
             {user ? (
               <Link to="/profile" className={`flex items-center gap-2 sm:gap-3 ${glassBg} backdrop-blur-xl px-2 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl border border-white/20 hover:border-honey/40 transition-all pointer-events-auto shrink-0`}>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl overflow-hidden border border-white/30">
-                  <img src={user.picture} alt="P" className="w-full h-full object-cover" />
+                <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl overflow-hidden border border-white/30 bg-white">
+                  <img src={resolveAvatar(user.picture)} alt="P" className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
                 </div>
                 <span className={`hidden xs:inline text-[8px] sm:text-[10px] font-bold ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'} tracking-widest uppercase truncate max-w-[60px] sm:max-w-none`}>{user.name.split(' ')[0]}</span>
               </Link>

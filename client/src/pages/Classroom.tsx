@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE_URL, API_ENDPOINTS, getAuthToken } from '@/config/api.config';
+import { resolveAvatar } from '@/lib/utils';
 
 interface LiveSession {
   id: string;
@@ -321,16 +322,22 @@ const Classroom: React.FC = () => {
 
   if (!user) {
     return (
-      <div className="container mx-auto px-6 py-20 flex flex-col items-center justify-center text-center space-y-12 animate-fadeIn pb-64">
-        <div className="w-32 h-32 bg-honey/10 rounded-[3rem] border border-honey/20 flex items-center justify-center text-5xl text-honey animate-float-soft">
+      <div className="container mx-auto px-4 sm:px-6 py-10 sm:py-20 flex flex-col items-center justify-center text-center space-y-8 sm:space-y-12 animate-fadeIn pb-32 sm:pb-64">
+        <div className="w-full flex justify-start">
+          <a href="#/" className="flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 text-white/80 hover:bg-honey hover:text-black hover:border-honey transition-all font-black uppercase text-[10px] sm:text-xs tracking-widest">
+            <i className="fas fa-arrow-left"></i>
+            <span>Orqaga</span>
+          </a>
+        </div>
+        <div className="w-24 h-24 sm:w-32 sm:h-32 bg-honey/10 rounded-[2rem] sm:rounded-[3rem] border border-honey/20 flex items-center justify-center text-4xl sm:text-5xl text-honey animate-float-soft">
           <i className="fas fa-video"></i>
         </div>
-        <div className="max-w-3xl space-y-6">
-          <h1 className="text-5xl md:text-7xl font-black text-white uppercase tracking-tighter honey-glow-text">Jonli Efirlar</h1>
-          <p className="text-xl md:text-2xl text-gray-200 font-bold leading-relaxed">
+        <div className="max-w-3xl space-y-4 sm:space-y-6 px-2">
+          <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-white uppercase tracking-tighter honey-glow-text">Jonli Efirlar</h1>
+          <p className="text-base sm:text-xl md:text-2xl text-gray-200 font-bold leading-relaxed">
             Honey Academy platformasida mutaxassislar tomonidan o'tiladigan jonli darslar va vebinarlarda ishtirok eting.
           </p>
-          <a href="#/auth" className="bg-honey text-white px-12 py-6 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-lg shadow-honey/20 hover:scale-105 transition-all inline-block">
+          <a href="#/auth" className="bg-honey text-white px-8 sm:px-12 py-4 sm:py-6 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-[0.2em] shadow-lg shadow-honey/20 hover:scale-105 transition-all inline-block">
             KIRISH
           </a>
         </div>
@@ -340,17 +347,24 @@ const Classroom: React.FC = () => {
 
   if (!activeSession) {
     return (
-      <div className="container mx-auto px-6 py-12 max-w-6xl animate-fadeIn">
-        <div className="flex justify-between items-center mb-12">
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-12 max-w-6xl animate-fadeIn pb-32">
+        {/* Back button */}
+        <a href="#/" className="inline-flex items-center gap-2 mb-6 sm:mb-8 px-4 py-2 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl bg-white/5 border border-white/10 text-white/80 hover:bg-honey hover:text-black hover:border-honey transition-all font-black uppercase text-[10px] sm:text-xs tracking-widest">
+          <i className="fas fa-arrow-left"></i>
+          <span>Orqaga</span>
+        </a>
+
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-6 mb-8 sm:mb-12">
           <div>
-            <h1 className="text-4xl font-black text-white uppercase tracking-tight">Active Live Streams</h1>
-            <p className="text-gray-400 font-bold mt-2">Hozirda bo'layotgan yoki rejalashtirilgan efirlar</p>
+            <h1 className="text-2xl sm:text-4xl font-black text-white uppercase tracking-tight">Jonli Efirlar</h1>
+            <p className="text-gray-400 font-bold mt-2 text-xs sm:text-base">Hozirda bo'layotgan yoki rejalashtirilgan efirlar</p>
           </div>
           {(user.is_superuser || user.is_staff) && (
             <button
               onClick={() => setIsCreating(true)}
-              className="bg-honey text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-honey/20 hover:scale-105 transition-all"
+              className="bg-honey text-white px-5 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-xl shadow-honey/20 hover:scale-105 transition-all w-full sm:w-auto"
             >
+              <i className="fas fa-plus mr-2"></i>
               Yangi efir boshlash
             </button>
           )}
@@ -520,7 +534,7 @@ const Classroom: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent pointer-events-none"></div>
               <div className="absolute bottom-3 sm:bottom-6 lg:bottom-10 left-3 sm:left-6 lg:left-10 flex items-center gap-2 sm:gap-4">
                 <div className="w-9 h-9 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl border-2 border-honey overflow-hidden shadow-2xl bg-black">
-                  <img src={activeSession.streamer?.avatar || "https://i.pravatar.cc/150?u=admin"} className="w-full h-full object-cover" alt="" />
+                  <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover bg-white" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
                 </div>
                 <div>
                   <h3 className="text-white font-black uppercase text-xs sm:text-base lg:text-lg tracking-tight">{activeSession.streamer?.username}</h3>
@@ -720,7 +734,7 @@ const Classroom: React.FC = () => {
                 <div key={p.id} className="flex items-center justify-between p-5 rounded-[2rem] bg-white/[0.02] border border-white/5 group hover:border-honey/20 transition-all">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10">
-                      <img src={p.user?.avatar || `https://i.pravatar.cc/150?u=${p.user?.username}`} className="w-full h-full object-cover" alt="" />
+                      <img src={resolveAvatar(p.user?.avatar)} className="w-full h-full object-cover bg-white" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
                     </div>
                     <div>
                       <h4 className="text-white font-black uppercase text-xs tracking-tight">{p.user?.username}</h4>

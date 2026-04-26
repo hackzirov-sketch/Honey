@@ -205,14 +205,13 @@ const Profile: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
               >
                 {avatarUploading ? (
                   <div className="w-8 h-8 border-4 border-honey border-t-transparent rounded-full animate-spin" />
-                ) : profile.avatar ? (
-                  <img
-                    src={profile.avatar.startsWith('http') ? profile.avatar : `${API_BASE_URL}${profile.avatar}`}
-                    alt={profile.username}
-                    className="w-full h-full object-cover"
-                  />
                 ) : (
-                  profile.username.substring(0, 2).toUpperCase()
+                  <img
+                    src={profile.avatar ? (profile.avatar.startsWith('http') ? profile.avatar : `${API_BASE_URL}${profile.avatar}`) : '/default-avatar.png'}
+                    alt={profile.username}
+                    className="w-full h-full object-cover bg-white"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }}
+                  />
                 )}
               </div>
               {/* Camera overlay */}
