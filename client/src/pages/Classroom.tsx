@@ -276,6 +276,9 @@ const Classroom: React.FC = () => {
       setLocalStream(null);
     }
     setActiveSession(null);
+    setParticipants([]);
+    setMessages([]);
+    fetchSessions();
   };
 
   const handleSendMessage = async () => {
@@ -399,8 +402,8 @@ const Classroom: React.FC = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {sessions.map(s => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          {sessions.filter(s => s.status !== 'finished').map(s => (
             <div key={s.id} className="glass-premium rounded-[2.5rem] border-white/5 overflow-hidden group hover:border-honey/30 transition-all duration-500 hover:translate-y-[-10px] shadow-2xl">
               <div className="relative aspect-video">
                 <img src={s.cover || "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=800"} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="" />
