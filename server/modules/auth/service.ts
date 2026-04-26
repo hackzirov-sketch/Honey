@@ -14,29 +14,51 @@ export const authService = {
     if (authRepo.findUserByEmail(data.email)) {
       throw new HttpError(400, "Email already exists", { email: ["Bu email allaqachon mavjud"] });
     }
-    if (authRepo.findUserByLogin(data.username)) {
+    if (authRepo.findUserByUsername(data.username)) {
+      throw new HttpError(400, "Username already exists", { username: ["Bu username allaqachon mavjud"] });
+    }
+    const pendingByUsername = authRepo.findPendingByUsername(data.username);
+    if (pendingByUsername && pendingByUsername.email.toLowerCase() !== data.email.toLowerCase()) {
       throw new HttpError(400, "Username already exists", { username: ["Bu username allaqachon mavjud"] });
     }
 
     const passwordHash = await bcrypt.hash(data.password, 12);
-    const isFirstUser = (sqlite.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number }).count === 0;
-    const user = authRepo.createUser({
+    const code = code6();
+    authRepo.upsertPendingRegistration({
       username: data.username,
       email: data.email,
       phone: data.phone,
       passwordHash,
-      isStaff: isFirstUser,
-      isSuperuser: isFirstUser,
+      code,
     });
-    const code = code6();
-    authRepo.upsertVerification(user.id, user.email, code);
-    await sendVerificationEmail(user.email, code);
-    return { message: "Verification code sent", email: user.email };
+    await sendVerificationEmail(data.email, code);
+    return { message: "Verification code sent", email: data.email };
   },
 
   verifyEmail(email: string, code: string) {
-    const user = authRepo.consumeVerification(email, code);
-    if (!user) throw new HttpError(400, "Kod noto'g'ri yoki eskirgan");
+    const pending = authRepo.consumePending(email, code);
+    if (!pending) {
+      const user = authRepo.consumeVerification(email, code);
+      if (!user) throw new HttpError(400, "Kod noto'g'ri yoki eskirgan");
+      return { ...issuePair(user.id), user: toPublicUser(user) };
+    }
+
+    if (authRepo.findUserByEmail(pending.email)) {
+      throw new HttpError(400, "Email already exists", { email: ["Bu email allaqachon mavjud"] });
+    }
+    if (authRepo.findUserByUsername(pending.username)) {
+      throw new HttpError(400, "Username already exists", { username: ["Bu username allaqachon mavjud"] });
+    }
+    const isFirstUser = (sqlite.prepare("SELECT COUNT(*) AS count FROM users").get() as { count: number }).count === 0;
+    const user = authRepo.createUser({
+      username: pending.username,
+      email: pending.email,
+      phone: pending.phone,
+      passwordHash: pending.password_hash,
+      isVerified: true,
+      isStaff: isFirstUser,
+      isSuperuser: isFirstUser,
+    });
     return { ...issuePair(user.id), user: toPublicUser(user) };
   },
 

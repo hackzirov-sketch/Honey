@@ -45,6 +45,19 @@ export const emailVerifications = sqliteTable("email_verifications", {
   createdAt: text("created_at").notNull(),
 });
 
+export const pendingRegistrations = sqliteTable("pending_registrations", {
+  id: text("id").primaryKey(),
+  username: text("username").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  passwordHash: text("password_hash").notNull(),
+  code: text("code").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  emailIdx: uniqueIndex("pending_registrations_email_idx").on(table.email),
+}));
+
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

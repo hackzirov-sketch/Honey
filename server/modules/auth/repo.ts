@@ -7,6 +7,9 @@ export const authRepo = {
   findUserByEmail(email: string) {
     return sqlite.prepare("SELECT * FROM users WHERE lower(email) = lower(?)").get(email) as any;
   },
+  findUserByUsername(username: string) {
+    return sqlite.prepare("SELECT * FROM users WHERE lower(username) = lower(?)").get(username) as any;
+  },
   findUserById(id: string) {
     return sqlite.prepare("SELECT * FROM users WHERE id = ?").get(id) as any;
   },
@@ -41,6 +44,46 @@ export const authRepo = {
       stamp,
     );
     return this.findUserById(id);
+  },
+  upsertPendingRegistration(input: {
+    username: string;
+    email: string;
+    phone?: string;
+    passwordHash: string;
+    code: string;
+  }) {
+    sqlite.prepare("DELETE FROM pending_registrations WHERE lower(email) = lower(?)").run(input.email);
+    const id = createId("pnd");
+    sqlite.prepare(`
+      INSERT INTO pending_registrations (id, username, email, phone, password_hash, code, expires_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      input.username,
+      input.email,
+      input.phone || null,
+      input.passwordHash,
+      input.code,
+      new Date(Date.now() + 15 * 60_000).toISOString(),
+      nowIso(),
+    );
+  },
+  findPendingByEmail(email: string) {
+    return sqlite.prepare("SELECT * FROM pending_registrations WHERE lower(email) = lower(?)").get(email) as any;
+  },
+  findPendingByUsername(username: string) {
+    return sqlite.prepare("SELECT * FROM pending_registrations WHERE lower(username) = lower(?)").get(username) as any;
+  },
+  consumePending(email: string, code: string) {
+    const row = this.findPendingByEmail(email);
+    if (!row) return null;
+    if (row.code !== code) return null;
+    if (new Date(row.expires_at).getTime() <= Date.now()) {
+      sqlite.prepare("DELETE FROM pending_registrations WHERE id = ?").run(row.id);
+      return null;
+    }
+    sqlite.prepare("DELETE FROM pending_registrations WHERE id = ?").run(row.id);
+    return row;
   },
   upsertVerification(userId: string, email: string, code: string) {
     sqlite.prepare("UPDATE email_verifications SET consumed = 1 WHERE user_id = ? AND consumed = 0").run(userId);
