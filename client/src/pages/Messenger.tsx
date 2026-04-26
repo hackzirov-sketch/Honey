@@ -90,7 +90,14 @@ const Messenger: React.FC = () => {
         combined = [...combined, ...(data.results || data).map((g: any) => ({ ...g, is_group: true }))];
       }
       combined.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
-      setChats(combined);
+      setChats((prev) => {
+        if (prev.length === combined.length) {
+          const sigPrev = prev.map(c => `${c.is_group ? 'g' : 'c'}:${c.id}:${c.updated_at}`).join('|');
+          const sigNew = combined.map(c => `${c.is_group ? 'g' : 'c'}:${c.id}:${c.updated_at}`).join('|');
+          if (sigPrev === sigNew) return prev;
+        }
+        return combined;
+      });
     } catch { /* offline */ } finally {
       if (showLoading) setChatsLoading(false);
     }
@@ -105,9 +112,9 @@ const Messenger: React.FC = () => {
   }, [user]);
 
   // Chat xabarlarini yukla
-  const fetchChatMessages = async (chatId: string) => {
+  const fetchChatMessages = async (chatId: string, showLoading = true) => {
     if (chatId === 'ai' || chatId === 'saved') return;
-    setChatMessagesLoading(true);
+    if (showLoading) setChatMessagesLoading(true);
 
     // Check if it's a group - first in local chats, then in search results
     let target = chats.find(c => String(c.id) === chatId);
@@ -126,10 +133,18 @@ const Messenger: React.FC = () => {
       });
       if (res.ok) {
         const data = await res.json();
-        setChatMessages(data.results || data);
+        const fresh: ChatMessage[] = data.results || data;
+        setChatMessages((prev) => {
+          if (prev.length === fresh.length) {
+            const sigPrev = prev.map(m => `${m.id}:${(m as any).deleted_at || ''}`).join('|');
+            const sigNew = fresh.map(m => `${m.id}:${(m as any).deleted_at || ''}`).join('|');
+            if (sigPrev === sigNew) return prev;
+          }
+          return fresh;
+        });
       }
     } catch { /* offline */ } finally {
-      setChatMessagesLoading(false);
+      if (showLoading) setChatMessagesLoading(false);
     }
   };
 
@@ -171,9 +186,35 @@ const Messenger: React.FC = () => {
     if (saved) setMessages(JSON.parse(saved));
   }, []);
 
+  const lastMessageCountRef = useRef({ ai: 0, chat: 0 });
+  const lastActiveChatRef = useRef<string | null>(null);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, chatMessages]);
+    if (messages.length > lastMessageCountRef.current.ai) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+    lastMessageCountRef.current.ai = messages.length;
+  }, [messages]);
+
+  useEffect(() => {
+    const chatChanged = lastActiveChatRef.current !== activeChat;
+    lastActiveChatRef.current = activeChat;
+    if (chatChanged) {
+      lastMessageCountRef.current.chat = chatMessages.length;
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      return;
+    }
+    if (chatMessages.length > lastMessageCountRef.current.chat) {
+      const container = messagesEndRef.current?.parentElement;
+      const nearBottom = container
+        ? container.scrollHeight - container.scrollTop - container.clientHeight < 200
+        : true;
+      if (nearBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+    lastMessageCountRef.current.chat = chatMessages.length;
+  }, [chatMessages, activeChat]);
 
   // Global qidiruv mantiqi
   useEffect(() => {
