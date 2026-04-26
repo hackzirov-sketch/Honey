@@ -448,242 +448,225 @@ const Classroom: React.FC = () => {
   const myParticipant = participants.find(p => p.user?.id === user.id || p.user?.username === user.username);
   const isApproved = isStreamer || myParticipant?.status === 'approved';
 
-  return (
-    <div className="fixed inset-0 z-[999] flex flex-col lg:flex-row bg-[#050505] overflow-hidden animate-fadeIn select-none">
-      {/* Top Bar */}
-      <div className="absolute top-0 left-0 right-0 h-16 sm:h-20 bg-gradient-to-b from-black/80 to-transparent z-[1000] pointer-events-none flex items-center px-3 sm:px-6">
-        <div className="pointer-events-auto flex items-center gap-2 sm:gap-4 w-full">
-          <button
-            onClick={handleLeave}
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/10 flex items-center justify-center text-white hover:bg-red-500 transition-all group shadow-2xl shrink-0"
-            title="Chiqish"
-          >
-            <i className="fas fa-arrow-left group-hover:-translate-x-1 transition-transform text-sm sm:text-base"></i>
-          </button>
-          <div className="bg-black/40 backdrop-blur-xl px-3 sm:px-6 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-white/10 flex-1 min-w-0">
-            <h2 className="text-white font-black uppercase text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-[0.2em] truncate">{activeSession.title}</h2>
-          </div>
-        </div>
-      </div>
+  const approvedParticipants = participants.filter(p => p.status === 'approved');
+  const pendingCount = participants.filter(p => p.status === 'pending').length;
 
+  return (
+    <div className="fixed inset-0 z-[999] flex bg-[#1f1f1f] overflow-hidden animate-fadeIn select-none text-white">
       {/* Permission Warning */}
       {permissionError && (
-        <div className="fixed top-20 sm:top-24 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:max-w-2xl z-[300] bg-red-600/95 backdrop-blur-xl text-white px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border border-red-400/30 shadow-2xl animate-slideInDown">
+        <div className="fixed top-4 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:max-w-2xl z-[1200] bg-red-600/95 backdrop-blur-xl text-white px-4 sm:px-5 py-3 rounded-xl border border-red-400/30 shadow-2xl animate-slideInDown">
           <div className="flex items-start gap-3">
-            <i className="fas fa-exclamation-triangle text-lg sm:text-xl mt-0.5 shrink-0"></i>
-            <p className="font-bold text-xs sm:text-sm flex-1 leading-snug">{permissionError}</p>
+            <i className="fas fa-exclamation-triangle text-base sm:text-lg mt-0.5 shrink-0"></i>
+            <p className="font-semibold text-xs sm:text-sm flex-1 leading-snug">{permissionError}</p>
             <button onClick={() => setPermissionError(null)} className="hover:opacity-70 shrink-0"><i className="fas fa-times"></i></button>
           </div>
-          <div className="flex flex-wrap gap-2 mt-3 pl-7 sm:pl-9">
-            <button
-              onClick={requestPermissions}
-              className="bg-white text-red-600 px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all"
-            >
-              <i className="fas fa-redo mr-2"></i>Qayta urinish
+          <div className="flex flex-wrap gap-2 mt-3 pl-7 sm:pl-8">
+            <button onClick={requestPermissions} className="bg-white text-red-600 px-3 py-1.5 rounded-lg font-bold text-[11px] hover:scale-105 transition-all">
+              <i className="fas fa-redo mr-1.5"></i>Qayta urinish
             </button>
-            <button
-              onClick={openInNewTab}
-              className="bg-black/30 text-white px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-black/50 transition-all border border-white/20"
-            >
-              <i className="fas fa-external-link-alt mr-2"></i>Yangi tabda ochish
+            <button onClick={openInNewTab} className="bg-black/30 text-white px-3 py-1.5 rounded-lg font-bold text-[11px] hover:bg-black/50 transition-all border border-white/20">
+              <i className="fas fa-external-link-alt mr-1.5"></i>Yangi tabda ochish
             </button>
           </div>
         </div>
       )}
 
-      {/* Video Call Area */}
-      <div className="flex-1 flex flex-col relative pt-20 sm:pt-24 pb-28 sm:pb-32 px-3 sm:px-6 md:px-10 lg:px-16 h-full overflow-hidden">
+      {/* Main video area */}
+      <div className="flex-1 flex flex-col relative h-full min-w-0">
+        {/* Top bar */}
+        <div className="absolute top-0 left-0 right-0 z-[200] flex items-center justify-between px-3 sm:px-5 py-3 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 pointer-events-auto">
+            <div className="flex items-center gap-2 bg-red-600 px-2.5 py-1 rounded-md">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+              <span className="text-[10px] font-bold tracking-wider">LIVE</span>
+            </div>
+            <div className="text-white/90 font-semibold text-sm sm:text-base truncate max-w-[40vw] sm:max-w-md">{activeSession.title}</div>
+          </div>
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <div className="hidden sm:flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-2.5 py-1.5 rounded-md text-[11px] font-medium">
+              <i className="fas fa-users text-white/70"></i>
+              <span>{approvedParticipants.length + 1}</span>
+            </div>
+          </div>
+        </div>
+
         {!isApproved ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 glass-premium rounded-[3rem] border-white/5 p-12">
-            <div className="w-24 h-24 rounded-full bg-honey/10 flex items-center justify-center text-honey text-4xl animate-pulse">
+          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-6 p-8">
+            <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center text-3xl text-honey animate-pulse">
               <i className="fas fa-clock"></i>
             </div>
             <div className="max-w-md">
-              <h2 className="text-white font-black uppercase text-2xl mb-2">Sorov yuborildi</h2>
-              <p className="text-gray-400 font-bold">Admin sizni efirga qo'shishini kuting. Ruxsat berilgach video va ovoz ulanadi.</p>
+              <h2 className="text-white font-bold text-xl mb-2">So'rov yuborildi</h2>
+              <p className="text-white/60 text-sm">Mentor sizni efirga qo'shishini kuting.</p>
             </div>
-            <button
-              onClick={() => setActiveSession(null)}
-              className="text-gray-500 font-black uppercase text-[10px] tracking-widest hover:text-white"
-            >
-              Orqaga qaytish
+            <button onClick={() => setActiveSession(null)} className="text-white/50 font-semibold text-sm hover:text-white">
+              <i className="fas fa-arrow-left mr-2"></i>Orqaga
             </button>
           </div>
         ) : (
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-5 lg:gap-8 h-full min-h-0">
-            {/* Main Streamer Video */}
-            <div className="relative rounded-2xl sm:rounded-[2rem] lg:rounded-[3rem] overflow-hidden border-2 border-honey/40 shadow-[0_0_60px_rgba(255,184,0,0.15)] group bg-black min-h-[40vh] lg:min-h-0">
+          <>
+            {/* Main speaker view (full bleed) */}
+            <div className="flex-1 relative bg-[#0e0e0e] flex items-center justify-center overflow-hidden">
               {isStreamer ? (
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className={`w-full h-full object-cover mirror-mode ${isCameraOff ? 'opacity-0' : 'opacity-90'}`}
-                />
+                <>
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover mirror-mode ${isCameraOff || !localStream ? 'opacity-0' : 'opacity-100'}`}
+                  />
+                  {(isCameraOff || !localStream) && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
+                      <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden border-4 border-honey/40 shadow-2xl bg-white">
+                        <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+                      </div>
+                      <div>
+                        <p className="text-white font-bold text-base sm:text-lg">{activeSession.streamer?.username}</p>
+                        <p className="text-white/50 text-xs sm:text-sm mt-1">{!localStream ? "Kamera ulanmagan" : "Kamera o'chirilgan"}</p>
+                      </div>
+                      {!localStream && (
+                        <button onClick={requestPermissions} className="mt-2 bg-honey text-black px-5 py-2.5 rounded-full font-bold text-sm hover:scale-105 transition-all shadow-lg">
+                          <i className="fas fa-video mr-2"></i>Kamerani yoqish
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
               ) : (
-                <img src="https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover opacity-80" alt="" />
-              )}
-
-              {isCameraOff && isStreamer && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 px-4">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-full bg-honey/10 border border-honey/20 flex items-center justify-center text-3xl sm:text-4xl lg:text-5xl text-honey animate-pulse">
-                    <i className="fas fa-video-slash"></i>
+                <div className="flex flex-col items-center gap-4 p-6 text-center">
+                  <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-honey/40 shadow-2xl bg-white">
+                    <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
                   </div>
-                  <p className="text-honey font-black uppercase tracking-widest text-[10px] sm:text-xs">Kamera o'chirilgan</p>
+                  <p className="text-white font-bold text-lg">{activeSession.streamer?.username}</p>
+                  <p className="text-white/50 text-xs">Mentor</p>
                 </div>
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent pointer-events-none"></div>
-              <div className="absolute bottom-3 sm:bottom-6 lg:bottom-10 left-3 sm:left-6 lg:left-10 flex items-center gap-2 sm:gap-4">
-                <div className="w-9 h-9 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl border-2 border-honey overflow-hidden shadow-2xl bg-black">
-                  <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover bg-white" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
-                </div>
-                <div>
-                  <h3 className="text-white font-black uppercase text-xs sm:text-base lg:text-lg tracking-tight">{activeSession.streamer?.username}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-600 animate-pulse"></span>
-                    <span className="text-honey text-[8px] sm:text-[10px] font-black uppercase tracking-widest">Mentor • Live</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute top-3 sm:top-6 lg:top-10 right-3 sm:right-6 lg:right-10 flex gap-2 sm:gap-3">
-                <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-white text-[8px] sm:text-[10px] font-black uppercase flex items-center gap-1.5 sm:gap-2">
-                  <i className="fas fa-users text-honey"></i> {participants.filter(p => p.status === 'approved').length}
-                </div>
-                <div className="bg-red-600/90 backdrop-blur-xl px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-white text-[8px] sm:text-[10px] font-black uppercase tracking-widest animate-pulse border border-red-400/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
-                  LIVE
-                </div>
+              {/* Speaker name plate (bottom-left) */}
+              <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-2 bg-black/55 backdrop-blur-md px-3 py-1.5 rounded-md">
+                {isMuted && <i className="fas fa-microphone-slash text-red-400 text-xs"></i>}
+                <span className="text-white text-xs sm:text-sm font-semibold">
+                  {isStreamer ? `${activeSession.streamer?.username} (Siz)` : activeSession.streamer?.username}
+                </span>
               </div>
             </div>
 
-            {/* My Cam (if not streamer) or Grid */}
-            {!isStreamer ? (
-              <div className="relative rounded-2xl sm:rounded-[2rem] lg:rounded-[3rem] overflow-hidden border border-white/10 bg-[#0c0c0c] flex items-center justify-center group shadow-2xl min-h-[30vh] lg:min-h-0">
+            {/* Self-view PiP (only for non-streamer to see themselves) */}
+            {!isStreamer && (
+              <div className="absolute bottom-24 sm:bottom-28 right-3 sm:right-5 w-28 h-40 sm:w-40 sm:h-52 rounded-xl overflow-hidden border border-white/15 shadow-2xl bg-[#2a2a2a] z-[150]">
                 {!isCameraOff && localStream ? (
-                  <div className="w-full h-full flex items-center justify-center relative">
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover mirror-mode opacity-80"
-                    />
-                    <div className="absolute top-3 sm:top-6 right-3 sm:right-6 flex items-center gap-2 bg-black/60 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/10">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-                      <span className="text-[7px] sm:text-[8px] font-black text-white uppercase tracking-widest">Siz (LIVE)</span>
-                    </div>
-                  </div>
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover mirror-mode"
+                  />
                 ) : (
-                  <div className="text-center space-y-4 sm:space-y-6 px-4">
-                    <div className="w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-2xl sm:text-3xl lg:text-4xl text-gray-700 mx-auto shadow-inner">
-                      <i className={`fas ${localStream ? 'fa-user-tie' : 'fa-video-slash'}`}></i>
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center p-2">
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-white">
+                      <img src="/default-avatar.png" className="w-full h-full object-cover" alt="" />
                     </div>
-                    <p className="text-gray-500 font-black uppercase tracking-widest text-[9px] sm:text-[10px]">{localStream ? "Kamera yopiq" : "Kamera ulanmagan"}</p>
+                    <p className="text-white/70 text-[10px] font-semibold leading-tight">{!localStream ? "Kamera yoq" : "Kamera o'chiq"}</p>
                     {!localStream && (
-                      <button
-                        onClick={requestPermissions}
-                        className="bg-honey text-black px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all"
-                      >
-                        <i className="fas fa-camera mr-2"></i>Kamerani yoqish
+                      <button onClick={requestPermissions} className="bg-honey text-black px-2 py-1 rounded text-[9px] font-bold mt-1">
+                        Yoqish
                       </button>
                     )}
                   </div>
                 )}
-                <div className="absolute bottom-3 sm:bottom-6 lg:bottom-10 left-3 sm:left-6 lg:left-10 flex items-center gap-2 sm:gap-4">
-                  <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-xs sm:text-sm ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-honey/20 text-honey'}`}>
-                    <i className={`fas ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'}`}></i>
-                  </div>
-                  <h3 className="text-white font-black uppercase text-xs sm:text-sm tracking-widest truncate max-w-[60vw]">{user.username}</h3>
+                <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+                  {isMuted && <i className="fas fa-microphone-slash text-red-400 text-[9px]"></i>}
+                  <span className="text-white text-[10px] font-semibold truncate">Siz</span>
                 </div>
               </div>
-            ) : (
-              <div className="relative rounded-2xl sm:rounded-[2rem] lg:rounded-[3rem] overflow-hidden border border-white/10 bg-white/[0.02] flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 text-center min-h-[30vh] lg:min-h-0">
-                <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3rem] bg-honey/10 border border-honey/20 flex items-center justify-center text-honey text-3xl sm:text-5xl lg:text-6xl mb-4 sm:mb-6 lg:mb-8 animate-float-soft">
-                  <i className="fas fa-broadcast-tower"></i>
-                </div>
-                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white uppercase tracking-tighter mb-2 sm:mb-4">Siz Efirdasiz</h2>
-                <p className="text-gray-400 font-bold text-xs sm:text-sm lg:text-base max-w-sm">Darsingizni davom ettiring. Ishtirokchilar sizni ko'rib va eshitib turishibdi.</p>
-                {!localStream && (
-                  <button
-                    onClick={requestPermissions}
-                    className="mt-6 bg-honey text-black px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all"
-                  >
-                    <i className="fas fa-camera mr-2"></i>Kamera/Mikrofonni yoqish
-                  </button>
+            )}
+
+            {/* Pending request banner for streamer */}
+            {isStreamer && pendingCount > 0 && (
+              <button
+                onClick={() => { setActiveTab('participants'); setShowSidebar(true); }}
+                className="absolute top-14 right-3 sm:top-16 sm:right-5 z-[150] bg-honey text-black px-3 py-2 rounded-lg font-bold text-xs shadow-2xl flex items-center gap-2 hover:scale-105 transition-all animate-pulse"
+              >
+                <i className="fas fa-hand-paper"></i>
+                {pendingCount} ta so'rov
+              </button>
+            )}
+
+            {/* Bottom control bar (Meet/Zoom style) */}
+            <div className="absolute bottom-0 left-0 right-0 z-[200] flex items-center justify-center gap-2 sm:gap-3 px-3 py-3 sm:py-4 bg-gradient-to-t from-black/80 to-transparent">
+              <button
+                onClick={toggleMute}
+                disabled={!localStream}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed ${isMuted ? 'bg-red-500 text-white' : 'bg-white/15 text-white hover:bg-white/25 backdrop-blur-md'}`}
+                title={isMuted ? "Ovozni yoqish" : "Ovozni o'chirish"}
+              >
+                <i className={`fas ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'} text-base sm:text-lg`}></i>
+              </button>
+
+              <button
+                onClick={toggleCamera}
+                disabled={!localStream}
+                className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed ${isCameraOff ? 'bg-red-500 text-white' : 'bg-white/15 text-white hover:bg-white/25 backdrop-blur-md'}`}
+                title={isCameraOff ? "Kamerani yoqish" : "Kamerani o'chirish"}
+              >
+                <i className={`fas ${isCameraOff ? 'fa-video-slash' : 'fa-video'} text-base sm:text-lg`}></i>
+              </button>
+
+              {!localStream && (
+                <button
+                  onClick={requestPermissions}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center bg-honey text-black hover:scale-105 transition-all shadow-lg"
+                  title="Kamera/Mikrofonni yoqish"
+                >
+                  <i className="fas fa-plug text-base sm:text-lg"></i>
+                </button>
+              )}
+
+              <button
+                onClick={() => { setActiveTab('chat'); setShowSidebar(s => !s); }}
+                className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all active:scale-90 backdrop-blur-md ${showSidebar && activeTab === 'chat' ? 'bg-honey text-black' : 'bg-white/15 text-white hover:bg-white/25'}`}
+                title="Suhbat"
+              >
+                <i className="fas fa-comment-dots text-base sm:text-lg"></i>
+              </button>
+
+              <button
+                onClick={() => { setActiveTab('participants'); setShowSidebar(s => !s); }}
+                className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center transition-all active:scale-90 backdrop-blur-md ${showSidebar && activeTab === 'participants' ? 'bg-honey text-black' : 'bg-white/15 text-white hover:bg-white/25'}`}
+                title="Ishtirokchilar"
+              >
+                <i className="fas fa-users text-base sm:text-lg"></i>
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-honey text-black text-[10px] font-black flex items-center justify-center border-2 border-[#1f1f1f]">{pendingCount}</span>
                 )}
-              </div>
-            )}
-          </div>
-        )}
+              </button>
 
-        {/* Controls */}
-        {isApproved && (
-          <div className="absolute bottom-3 sm:bottom-6 lg:bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 sm:gap-3 lg:gap-4 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 lg:py-5 bg-black/85 backdrop-blur-3xl rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-[200] transition-all hover:border-honey/40 max-w-[calc(100vw-1.5rem)]">
-            <div className="hidden sm:flex items-center gap-3 mr-2 lg:mr-4 border-r border-white/10 pr-3 lg:pr-6">
-              <AudioVisualizer stream={localStream} active={!isMuted && !!localStream} />
+              {isStreamer ? (
+                <button
+                  onClick={handleEndStream}
+                  className="ml-2 sm:ml-3 h-12 sm:h-14 px-4 sm:px-6 rounded-full bg-red-600 text-white font-bold text-xs sm:text-sm hover:bg-red-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl"
+                  title="Efirni tugatish"
+                >
+                  <i className="fas fa-phone-slash text-base sm:text-lg rotate-[135deg]"></i>
+                  <span className="hidden sm:inline">Tugatish</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleLeave}
+                  className="ml-2 sm:ml-3 h-12 sm:h-14 px-4 sm:px-6 rounded-full bg-red-600 text-white font-bold text-xs sm:text-sm hover:bg-red-700 transition-all active:scale-95 flex items-center gap-2 shadow-xl"
+                  title="Chiqish"
+                >
+                  <i className="fas fa-phone-slash text-base sm:text-lg rotate-[135deg]"></i>
+                  <span className="hidden sm:inline">Chiqish</span>
+                </button>
+              )}
             </div>
-
-            <button
-              onClick={toggleMute}
-              disabled={!localStream}
-              className={`w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed ${isMuted ? 'bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-white hover:bg-white/10'}`}
-              title={isMuted ? "Ovozni yoqish" : "Ovozni o'chirish"}
-            >
-              <i className={`fas ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'} text-base sm:text-lg lg:text-xl`}></i>
-            </button>
-
-            <button
-              onClick={toggleCamera}
-              disabled={!localStream}
-              className={`w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed ${isCameraOff ? 'bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-white hover:bg-white/10'}`}
-              title={isCameraOff ? "Kamerani yoqish" : "Kamerani o'chirish"}
-            >
-              <i className={`fas ${isCameraOff ? 'fa-video-slash' : 'fa-video'} text-base sm:text-lg lg:text-xl`}></i>
-            </button>
-
-            {!localStream && (
-              <button
-                onClick={requestPermissions}
-                className="w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center bg-honey text-black hover:scale-105 transition-all"
-                title="Kamera/Mikrofonni yoqish"
-              >
-                <i className="fas fa-plug text-base sm:text-lg lg:text-xl"></i>
-              </button>
-            )}
-
-            <div className="w-px h-8 sm:h-10 bg-white/10 mx-1 sm:mx-2"></div>
-
-            {isStreamer ? (
-              <button
-                onClick={handleEndStream}
-                className="bg-red-600 text-white px-3 sm:px-6 lg:px-8 py-3 lg:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-[0.2em] hover:bg-red-700 transition-all active:scale-95 shadow-[0_10px_30px_rgba(239,68,68,0.3)] border border-white/10 flex items-center gap-2 sm:gap-3"
-              >
-                <i className="fas fa-stop-circle text-sm sm:text-base lg:text-lg"></i>
-                <span className="hidden sm:inline">YAKUNLASH</span>
-              </button>
-            ) : (
-              <button
-                onClick={handleLeave}
-                className="bg-white/10 text-white px-3 sm:px-6 lg:px-8 py-3 lg:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-[0.2em] hover:bg-red-600 transition-all active:scale-95 border border-white/5 flex items-center gap-2"
-              >
-                <i className="fas fa-sign-out-alt sm:hidden"></i>
-                <span className="hidden sm:inline">TARK ETISH</span>
-              </button>
-            )}
-          </div>
+          </>
         )}
       </div>
-
-      {/* Sidebar toggle (mobile) */}
-      <button
-        onClick={() => setShowSidebar(s => !s)}
-        className="lg:hidden fixed top-3 right-3 z-[1100] w-10 h-10 rounded-xl bg-black/70 backdrop-blur-xl border border-white/10 text-white flex items-center justify-center hover:bg-honey hover:text-black transition-all"
-        title={showSidebar ? "Yopish" : "Suhbat"}
-      >
-        <i className={`fas ${showSidebar ? 'fa-times' : 'fa-comments'} text-base`}></i>
-      </button>
 
       {/* Sidebar overlay backdrop (mobile) */}
       {showSidebar && (
@@ -693,96 +676,133 @@ const Classroom: React.FC = () => {
         />
       )}
 
-      {/* Sidebar Section */}
-      <div className={`fixed lg:relative inset-y-0 right-0 z-[1060] lg:z-auto w-[88%] sm:w-[420px] lg:w-[450px] max-w-full border-l border-white/10 flex flex-col bg-[#0a0a0a]/95 lg:bg-white/[0.01] backdrop-blur-3xl transition-transform duration-300 ${showSidebar ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
-        <div className="flex p-3 sm:p-4 gap-2 sm:gap-3 bg-black/40">
+      {/* Sidebar (chat / participants) */}
+      <div className={`fixed lg:relative inset-y-0 right-0 z-[1060] lg:z-auto w-[88%] sm:w-[380px] lg:w-[360px] max-w-full flex flex-col bg-[#2a2a2a] border-l border-white/5 transition-transform duration-300 ${showSidebar ? 'translate-x-0' : 'translate-x-full lg:translate-x-full lg:hidden'}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`px-3 py-1.5 rounded-md font-semibold text-xs transition-all ${activeTab === 'chat' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white'}`}
+            >
+              <i className="fas fa-comment-dots mr-1.5"></i>Suhbat
+            </button>
+            <button
+              onClick={() => setActiveTab('participants')}
+              className={`px-3 py-1.5 rounded-md font-semibold text-xs transition-all ${activeTab === 'participants' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white'}`}
+            >
+              <i className="fas fa-users mr-1.5"></i>{participants.length + 1}
+            </button>
+          </div>
           <button
-            onClick={() => setActiveTab('chat')}
-            className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${activeTab === 'chat' ? 'bg-honey text-white shadow-lg shadow-honey/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+            onClick={() => setShowSidebar(false)}
+            className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/70 transition-all"
           >
-            Suhbat
-          </button>
-          <button
-            onClick={() => setActiveTab('participants')}
-            className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${activeTab === 'participants' ? 'bg-honey text-white shadow-lg shadow-honey/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
-          >
-            Ishtirokchilar ({participants.length})
+            <i className="fas fa-times"></i>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
           {activeTab === 'chat' ? (
-            <div className="space-y-8">
-              {messages.map(m => (
-                <div key={m.id} className="flex flex-col gap-3 animate-slideInRight">
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-lg bg-honey/10 flex items-center justify-center text-honey text-[10px] font-black">
-                      {m.user?.username[0].toUpperCase()}
-                    </div>
-                    <span className={`font-black text-[10px] uppercase ${m.user?.username === activeSession.streamer?.username ? 'text-honey' : 'text-blue-400'}`}>
-                      {m.user?.username}
-                    </span>
-                    <span className="text-gray-600 text-[8px] font-bold">{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                  <div className="bg-white/[0.03] p-5 rounded-[1.5rem] rounded-tl-none border border-white/5">
-                    <p className="text-white/90 text-sm font-bold leading-relaxed">{m.text}</p>
-                  </div>
+            <div className="space-y-4">
+              {messages.length === 0 && (
+                <div className="text-center py-12 text-white/40">
+                  <i className="fas fa-comments text-3xl mb-3 opacity-50"></i>
+                  <p className="text-xs font-medium">Hozircha xabar yo'q</p>
                 </div>
-              ))}
+              )}
+              {messages.map(m => {
+                const isMine = m.user?.username === user.username;
+                const isMentor = m.user?.username === activeSession.streamer?.username;
+                return (
+                  <div key={m.id} className="flex gap-2.5 animate-slideInRight">
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-white shrink-0">
+                      <img src={resolveAvatar(m.user?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline gap-2 mb-0.5">
+                        <span className={`font-semibold text-xs ${isMentor ? 'text-honey' : isMine ? 'text-emerald-400' : 'text-blue-300'}`}>
+                          {m.user?.username}{isMine && ' (Siz)'}
+                        </span>
+                        <span className="text-white/40 text-[10px]">{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-white/90 text-sm leading-snug break-words">{m.text}</p>
+                    </div>
+                  </div>
+                );
+              })}
               <div ref={chatEndRef} />
             </div>
           ) : (
-            <div className="space-y-4">
-              {participants.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-5 rounded-[2rem] bg-white/[0.02] border border-white/5 group hover:border-honey/20 transition-all">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl overflow-hidden border border-white/10">
-                      <img src={resolveAvatar(p.user?.avatar)} className="w-full h-full object-cover bg-white" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
-                    </div>
-                    <div>
-                      <h4 className="text-white font-black uppercase text-xs tracking-tight">{p.user?.username}</h4>
-                      <div className="flex items-center gap-2">
-                        <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'approved' ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                        <p className="text-gray-600 font-bold text-[9px] uppercase">{p.status}</p>
-                      </div>
-                    </div>
+            <div className="space-y-2">
+              {/* Streamer first */}
+              <div className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-all">
+                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-honey/40 bg-white shrink-0">
+                  <img src={resolveAvatar(activeSession.streamer?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-semibold truncate">{activeSession.streamer?.username}</p>
+                  <p className="text-honey text-[10px] font-bold uppercase">Mentor</p>
+                </div>
+              </div>
+              {/* Pending */}
+              {participants.filter(p => p.status === 'pending').map(p => (
+                <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-white shrink-0">
+                    <img src={resolveAvatar(p.user?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
                   </div>
-                  {isStreamer && p.status === 'pending' && (
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{p.user?.username}</p>
+                    <p className="text-amber-400 text-[10px] font-bold uppercase">Kutmoqda</p>
+                  </div>
+                  {isStreamer && (
                     <button
                       onClick={() => handleApprove(p.id)}
-                      className="bg-honey text-white px-5 py-2.5 rounded-xl font-black uppercase text-[9px] tracking-widest shadow-lg shadow-honey/20 hover:scale-105 active:scale-95 transition-all"
+                      className="bg-honey text-black px-3 py-1.5 rounded-md font-bold text-[11px] hover:scale-105 transition-all"
                     >
-                      Qabul qilish
+                      Qabul
                     </button>
                   )}
-                  {p.status === 'approved' && (
-                    <div className="flex gap-2">
-                      {p.is_muted && <i className="fas fa-microphone-slash text-red-500 text-xs"></i>}
-                      {p.is_camera_off && <i className="fas fa-video-slash text-red-500 text-xs"></i>}
-                    </div>
-                  )}
+                </div>
+              ))}
+              {/* Approved */}
+              {approvedParticipants.map(p => (
+                <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-white/5 transition-all">
+                  <div className="w-10 h-10 rounded-full overflow-hidden bg-white shrink-0">
+                    <img src={resolveAvatar(p.user?.avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{p.user?.username}</p>
+                    <p className="text-emerald-400 text-[10px] font-bold uppercase">Online</p>
+                  </div>
+                  <div className="flex gap-1.5 text-white/60">
+                    {p.is_muted && <i className="fas fa-microphone-slash text-red-400 text-xs"></i>}
+                    {p.is_camera_off && <i className="fas fa-video-slash text-red-400 text-xs"></i>}
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Input Area */}
+        {/* Chat input */}
         {activeTab === 'chat' && isApproved && (
-          <div className="p-6 border-t border-white/5 bg-black/40 mb-20 lg:mb-0">
-            <div className="relative flex items-center gap-4">
+          <div className="p-3 border-t border-white/5 bg-[#1f1f1f]">
+            <div className="flex items-center gap-2 bg-[#3a3a3a] rounded-full pl-4 pr-1 py-1">
               <input
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Xabar yozing..."
-                className="flex-1 bg-white/[0.03] border border-white/10 rounded-2xl py-5 px-8 text-white text-sm outline-none focus:border-honey/50 transition-all font-bold"
+                className="flex-1 bg-transparent text-white text-sm outline-none placeholder:text-white/40 py-2"
               />
               <button
                 onClick={handleSendMessage}
-                className="w-14 h-14 rounded-2xl bg-honey text-[#1A1100] flex items-center justify-center shadow-xl shadow-honey/20 active:scale-90 transition-all"
+                disabled={!inputText.trim()}
+                className="w-9 h-9 rounded-full bg-honey text-black flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 active:scale-95 transition-all"
               >
-                <i className="fas fa-paper-plane text-xl"></i>
+                <i className="fas fa-paper-plane text-sm"></i>
               </button>
             </div>
           </div>
