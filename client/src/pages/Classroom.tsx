@@ -98,6 +98,7 @@ const Classroom: React.FC = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -192,6 +193,7 @@ const Classroom: React.FC = () => {
         setActiveSession(data);
         setIsCreating(false);
         setNewTitle('');
+        requestPermissions();
       }
     } catch (e) { console.error(e); }
     setIsLoading(false);
@@ -212,25 +214,43 @@ const Classroom: React.FC = () => {
   };
 
   const requestPermissions = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setPermissionError("Brauzeringiz kamera kirishini qo'llab-quvvatlamaydi. Iltimos sahifani yangi tabda oching (HTTPS talab qilinadi).");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: true
       });
       setLocalStream(stream);
       setPermissionError(null);
 
-      // If camera is already set to off, disable tracks
       if (isCameraOff) {
         stream.getVideoTracks().forEach(t => t.enabled = false);
       }
       if (isMuted) {
         stream.getAudioTracks().forEach(t => t.enabled = false);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Permission error:", e);
-      setPermissionError("Kamera yoki mikrofonga ruxsat berilmadi. Iltimos brauzer sozlamalarini tekshiring yoki HTTPS aloqasidan foydalaning.");
+      const name = e?.name || '';
+      let msg = "Kamera yoki mikrofonga ruxsat berilmadi.";
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        msg = "Siz kamera/mikrofonga ruxsat bermadingiz. Brauzer manzil qatori yonidagi qulfni bosib ruxsat bering va qayta urinib ko'ring.";
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        msg = "Kamera yoki mikrofon topilmadi. Qurilmangiz ulanganligini tekshiring.";
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        msg = "Kamera band — boshqa dastur foydalanmoqda. O'sha dasturlarni yopib qayta urinib ko'ring.";
+      } else if (name === 'SecurityError' || window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        msg = "Xavfsiz ulanish (HTTPS) kerak. Sahifani yangi tabda HTTPS orqali oching.";
+      }
+      setPermissionError(msg);
     }
+  };
+
+  const openInNewTab = () => {
+    window.open(window.location.href, '_blank', 'noopener,noreferrer');
   };
 
   const toggleMute = () => {
@@ -413,33 +433,49 @@ const Classroom: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-[999] flex flex-col lg:flex-row bg-[#050505] overflow-hidden animate-fadeIn select-none">
-      {/* Top Bar for Mobile/General */}
-      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/80 to-transparent z-[1000] pointer-events-none flex items-center px-8">
-        <div className="pointer-events-auto flex items-center gap-4">
+      {/* Top Bar */}
+      <div className="absolute top-0 left-0 right-0 h-16 sm:h-20 bg-gradient-to-b from-black/80 to-transparent z-[1000] pointer-events-none flex items-center px-3 sm:px-6">
+        <div className="pointer-events-auto flex items-center gap-2 sm:gap-4 w-full">
           <button
             onClick={handleLeave}
-            className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/10 flex items-center justify-center text-white hover:bg-red-500 transition-all group shadow-2xl"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white/10 backdrop-blur-2xl border border-white/10 flex items-center justify-center text-white hover:bg-red-500 transition-all group shadow-2xl shrink-0"
             title="Chiqish"
           >
-            <i className="fas fa-arrow-left group-hover:-translate-x-1 transition-transform"></i>
+            <i className="fas fa-arrow-left group-hover:-translate-x-1 transition-transform text-sm sm:text-base"></i>
           </button>
-          <div className="bg-black/40 backdrop-blur-xl px-6 py-3 rounded-2xl border border-white/10 hidden md:block">
-            <h2 className="text-white font-black uppercase text-[10px] tracking-[0.2em]">{activeSession.title}</h2>
+          <div className="bg-black/40 backdrop-blur-xl px-3 sm:px-6 py-2 sm:py-3 rounded-xl sm:rounded-2xl border border-white/10 flex-1 min-w-0">
+            <h2 className="text-white font-black uppercase text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-[0.2em] truncate">{activeSession.title}</h2>
           </div>
         </div>
       </div>
 
       {/* Permission Warning */}
       {permissionError && (
-        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[300] bg-red-600/90 backdrop-blur-xl text-white px-8 py-4 rounded-2xl border border-red-400/30 shadow-2xl flex items-center gap-4 animate-slideInDown">
-          <i className="fas fa-exclamation-triangle text-xl"></i>
-          <p className="font-bold text-sm">{permissionError}</p>
-          <button onClick={() => setPermissionError(null)} className="ml-4 hover:opacity-70"><i className="fas fa-times"></i></button>
+        <div className="fixed top-20 sm:top-24 left-2 right-2 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:max-w-2xl z-[300] bg-red-600/95 backdrop-blur-xl text-white px-4 sm:px-6 py-3 sm:py-4 rounded-2xl border border-red-400/30 shadow-2xl animate-slideInDown">
+          <div className="flex items-start gap-3">
+            <i className="fas fa-exclamation-triangle text-lg sm:text-xl mt-0.5 shrink-0"></i>
+            <p className="font-bold text-xs sm:text-sm flex-1 leading-snug">{permissionError}</p>
+            <button onClick={() => setPermissionError(null)} className="hover:opacity-70 shrink-0"><i className="fas fa-times"></i></button>
+          </div>
+          <div className="flex flex-wrap gap-2 mt-3 pl-7 sm:pl-9">
+            <button
+              onClick={requestPermissions}
+              className="bg-white text-red-600 px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all"
+            >
+              <i className="fas fa-redo mr-2"></i>Qayta urinish
+            </button>
+            <button
+              onClick={openInNewTab}
+              className="bg-black/30 text-white px-4 py-2 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-black/50 transition-all border border-white/20"
+            >
+              <i className="fas fa-external-link-alt mr-2"></i>Yangi tabda ochish
+            </button>
+          </div>
         </div>
       )}
 
       {/* Video Call Area */}
-      <div className="flex-1 flex flex-col relative pt-24 pb-32 md:p-12 lg:p-20 lg:pt-24 lg:pb-32 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col relative pt-20 sm:pt-24 pb-28 sm:pb-32 px-3 sm:px-6 md:px-10 lg:px-16 h-full overflow-hidden">
         {!isApproved ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8 glass-premium rounded-[3rem] border-white/5 p-12">
             <div className="w-24 h-24 rounded-full bg-honey/10 flex items-center justify-center text-honey text-4xl animate-pulse">
@@ -457,49 +493,49 @@ const Classroom: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 h-full">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-5 lg:gap-8 h-full min-h-0">
             {/* Main Streamer Video */}
-            <div className="relative rounded-[3rem] overflow-hidden border-2 border-honey/40 shadow-[0_0_80px_rgba(255,184,0,0.15)] group bg-black">
+            <div className="relative rounded-2xl sm:rounded-[2rem] lg:rounded-[3rem] overflow-hidden border-2 border-honey/40 shadow-[0_0_60px_rgba(255,184,0,0.15)] group bg-black min-h-[40vh] lg:min-h-0">
               {isStreamer ? (
                 <video
                   ref={localVideoRef}
                   autoPlay
                   playsInline
                   muted
-                  className={`w-full h-full object-cover mirror-mode ${isCameraOff ? 'opacity-0' : 'opacity-80'}`}
+                  className={`w-full h-full object-cover mirror-mode ${isCameraOff ? 'opacity-0' : 'opacity-90'}`}
                 />
               ) : (
                 <img src="https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&q=80&w=1200" className="w-full h-full object-cover opacity-80" alt="" />
               )}
 
               {isCameraOff && isStreamer && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4">
-                  <div className="w-40 h-40 rounded-full bg-honey/10 border border-honey/20 flex items-center justify-center text-5xl text-honey animate-pulse">
+                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-4 px-4">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-full bg-honey/10 border border-honey/20 flex items-center justify-center text-3xl sm:text-4xl lg:text-5xl text-honey animate-pulse">
                     <i className="fas fa-video-slash"></i>
                   </div>
-                  <p className="text-honey font-black uppercase tracking-widest text-xs">Kamera o'chirilgan</p>
+                  <p className="text-honey font-black uppercase tracking-widest text-[10px] sm:text-xs">Kamera o'chirilgan</p>
                 </div>
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
-              <div className="absolute bottom-10 left-10 flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl border-2 border-honey overflow-hidden shadow-2xl bg-black">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent pointer-events-none"></div>
+              <div className="absolute bottom-3 sm:bottom-6 lg:bottom-10 left-3 sm:left-6 lg:left-10 flex items-center gap-2 sm:gap-4">
+                <div className="w-9 h-9 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl border-2 border-honey overflow-hidden shadow-2xl bg-black">
                   <img src={activeSession.streamer?.avatar || "https://i.pravatar.cc/150?u=admin"} className="w-full h-full object-cover" alt="" />
                 </div>
                 <div>
-                  <h3 className="text-white font-black uppercase text-lg tracking-tight">{activeSession.streamer?.username}</h3>
+                  <h3 className="text-white font-black uppercase text-xs sm:text-base lg:text-lg tracking-tight">{activeSession.streamer?.username}</h3>
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
-                    <span className="text-honey text-[10px] font-black uppercase tracking-widest">Mentor • Live</span>
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-600 animate-pulse"></span>
+                    <span className="text-honey text-[8px] sm:text-[10px] font-black uppercase tracking-widest">Mentor • Live</span>
                   </div>
                 </div>
               </div>
 
-              <div className="absolute top-10 right-10 flex gap-4">
-                <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-4 py-2 rounded-xl text-white text-[10px] font-black uppercase flex items-center gap-2">
+              <div className="absolute top-3 sm:top-6 lg:top-10 right-3 sm:right-6 lg:right-10 flex gap-2 sm:gap-3">
+                <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-white text-[8px] sm:text-[10px] font-black uppercase flex items-center gap-1.5 sm:gap-2">
                   <i className="fas fa-users text-honey"></i> {participants.filter(p => p.status === 'approved').length}
                 </div>
-                <div className="bg-red-600/90 backdrop-blur-xl px-4 py-2 rounded-xl text-white text-[10px] font-black uppercase tracking-widest animate-pulse border border-red-400/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                <div className="bg-red-600/90 backdrop-blur-xl px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-white text-[8px] sm:text-[10px] font-black uppercase tracking-widest animate-pulse border border-red-400/30 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
                   LIVE
                 </div>
               </div>
@@ -507,43 +543,59 @@ const Classroom: React.FC = () => {
 
             {/* My Cam (if not streamer) or Grid */}
             {!isStreamer ? (
-              <div className="relative rounded-[3rem] overflow-hidden border border-white/10 bg-[#0c0c0c] flex items-center justify-center group shadow-2xl">
-                {!isCameraOff ? (
+              <div className="relative rounded-2xl sm:rounded-[2rem] lg:rounded-[3rem] overflow-hidden border border-white/10 bg-[#0c0c0c] flex items-center justify-center group shadow-2xl min-h-[30vh] lg:min-h-0">
+                {!isCameraOff && localStream ? (
                   <div className="w-full h-full flex items-center justify-center relative">
                     <video
                       ref={localVideoRef}
                       autoPlay
                       playsInline
                       muted
-                      className="w-full h-full object-cover mirror-mode opacity-60"
+                      className="w-full h-full object-cover mirror-mode opacity-80"
                     />
-                    <div className="absolute top-6 right-6 flex items-center gap-2 bg-black/60 px-3 py-1.5 rounded-xl border border-white/10">
+                    <div className="absolute top-3 sm:top-6 right-3 sm:right-6 flex items-center gap-2 bg-black/60 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg sm:rounded-xl border border-white/10">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
-                      <span className="text-[8px] font-black text-white uppercase tracking-widest">Siz (LIVE)</span>
+                      <span className="text-[7px] sm:text-[8px] font-black text-white uppercase tracking-widest">Siz (LIVE)</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="text-center space-y-6">
-                    <div className="w-32 h-32 rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-4xl text-gray-700 mx-auto shadow-inner">
-                      <i className="fas fa-user-tie"></i>
+                  <div className="text-center space-y-4 sm:space-y-6 px-4">
+                    <div className="w-20 h-20 sm:w-28 sm:h-28 lg:w-32 lg:h-32 rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] bg-white/5 border border-white/10 flex items-center justify-center text-2xl sm:text-3xl lg:text-4xl text-gray-700 mx-auto shadow-inner">
+                      <i className={`fas ${localStream ? 'fa-user-tie' : 'fa-video-slash'}`}></i>
                     </div>
-                    <p className="text-gray-500 font-black uppercase tracking-widest text-[10px]">Kamera yopiq</p>
+                    <p className="text-gray-500 font-black uppercase tracking-widest text-[9px] sm:text-[10px]">{localStream ? "Kamera yopiq" : "Kamera ulanmagan"}</p>
+                    {!localStream && (
+                      <button
+                        onClick={requestPermissions}
+                        className="bg-honey text-black px-5 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all"
+                      >
+                        <i className="fas fa-camera mr-2"></i>Kamerani yoqish
+                      </button>
+                    )}
                   </div>
                 )}
-                <div className="absolute bottom-10 left-10 flex items-center gap-4">
-                  <div className={`p-2 rounded-xl ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-honey/20 text-honey'}`}>
+                <div className="absolute bottom-3 sm:bottom-6 lg:bottom-10 left-3 sm:left-6 lg:left-10 flex items-center gap-2 sm:gap-4">
+                  <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl text-xs sm:text-sm ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-honey/20 text-honey'}`}>
                     <i className={`fas ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'}`}></i>
                   </div>
-                  <h3 className="text-white font-black uppercase text-sm tracking-widest">{user.username}</h3>
+                  <h3 className="text-white font-black uppercase text-xs sm:text-sm tracking-widest truncate max-w-[60vw]">{user.username}</h3>
                 </div>
               </div>
             ) : (
-              <div className="relative rounded-[3rem] overflow-hidden border border-white/10 bg-white/[0.02] flex flex-col items-center justify-center p-12 text-center">
-                <div className="w-40 h-40 rounded-[3rem] bg-honey/10 border border-honey/20 flex items-center justify-center text-honey text-6xl mb-8 animate-float-soft">
+              <div className="relative rounded-2xl sm:rounded-[2rem] lg:rounded-[3rem] overflow-hidden border border-white/10 bg-white/[0.02] flex flex-col items-center justify-center p-6 sm:p-10 lg:p-12 text-center min-h-[30vh] lg:min-h-0">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-2xl sm:rounded-[2.5rem] lg:rounded-[3rem] bg-honey/10 border border-honey/20 flex items-center justify-center text-honey text-3xl sm:text-5xl lg:text-6xl mb-4 sm:mb-6 lg:mb-8 animate-float-soft">
                   <i className="fas fa-broadcast-tower"></i>
                 </div>
-                <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">Siz Efirdasiz</h2>
-                <p className="text-gray-400 font-bold max-w-sm">Darsingizni davom ettiring. Ishtirokchilar sizni ko'rib va eshitib turishibdi.</p>
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black text-white uppercase tracking-tighter mb-2 sm:mb-4">Siz Efirdasiz</h2>
+                <p className="text-gray-400 font-bold text-xs sm:text-sm lg:text-base max-w-sm">Darsingizni davom ettiring. Ishtirokchilar sizni ko'rib va eshitib turishibdi.</p>
+                {!localStream && (
+                  <button
+                    onClick={requestPermissions}
+                    className="mt-6 bg-honey text-black px-6 py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:scale-105 transition-all"
+                  >
+                    <i className="fas fa-camera mr-2"></i>Kamera/Mikrofonni yoqish
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -551,52 +603,82 @@ const Classroom: React.FC = () => {
 
         {/* Controls */}
         {isApproved && (
-          <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-4 px-8 py-5 bg-black/80 backdrop-blur-3xl rounded-[2.5rem] border border-white/10 shadow-[0_30px_100px_rgba(0,0,0,0.8)] z-[200] transition-all hover:border-honey/40">
-            <div className="flex items-center gap-3 mr-4 border-r border-white/10 pr-6">
-              <AudioVisualizer stream={localStream} active={!isMuted} />
+          <div className="absolute bottom-3 sm:bottom-6 lg:bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 sm:gap-3 lg:gap-4 px-3 sm:px-6 lg:px-8 py-2.5 sm:py-4 lg:py-5 bg-black/85 backdrop-blur-3xl rounded-2xl sm:rounded-[2rem] lg:rounded-[2.5rem] border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-[200] transition-all hover:border-honey/40 max-w-[calc(100vw-1.5rem)]">
+            <div className="hidden sm:flex items-center gap-3 mr-2 lg:mr-4 border-r border-white/10 pr-3 lg:pr-6">
+              <AudioVisualizer stream={localStream} active={!isMuted && !!localStream} />
             </div>
 
             <button
               onClick={toggleMute}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 ${isMuted ? 'bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-white hover:bg-white/10 hover:shadow-lg'}`}
+              disabled={!localStream}
+              className={`w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed ${isMuted ? 'bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-white hover:bg-white/10'}`}
               title={isMuted ? "Ovozni yoqish" : "Ovozni o'chirish"}
             >
-              <i className={`fas ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'} text-xl`}></i>
+              <i className={`fas ${isMuted ? 'fa-microphone-slash' : 'fa-microphone'} text-base sm:text-lg lg:text-xl`}></i>
             </button>
 
             <button
               onClick={toggleCamera}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 ${isCameraOff ? 'bg-red-500 text-white shadow-[0_0_30px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-white hover:bg-white/10 hover:shadow-lg'}`}
+              disabled={!localStream}
+              className={`w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center transition-all duration-300 active:scale-90 disabled:opacity-40 disabled:cursor-not-allowed ${isCameraOff ? 'bg-red-500 text-white shadow-[0_0_20px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-white hover:bg-white/10'}`}
               title={isCameraOff ? "Kamerani yoqish" : "Kamerani o'chirish"}
             >
-              <i className={`fas ${isCameraOff ? 'fa-video-slash' : 'fa-video'} text-xl`}></i>
+              <i className={`fas ${isCameraOff ? 'fa-video-slash' : 'fa-video'} text-base sm:text-lg lg:text-xl`}></i>
             </button>
 
-            <div className="w-px h-10 bg-white/10 mx-2"></div>
+            {!localStream && (
+              <button
+                onClick={requestPermissions}
+                className="w-11 h-11 sm:w-12 sm:h-12 lg:w-14 lg:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center bg-honey text-black hover:scale-105 transition-all"
+                title="Kamera/Mikrofonni yoqish"
+              >
+                <i className="fas fa-plug text-base sm:text-lg lg:text-xl"></i>
+              </button>
+            )}
+
+            <div className="w-px h-8 sm:h-10 bg-white/10 mx-1 sm:mx-2"></div>
 
             {isStreamer ? (
               <button
                 onClick={handleEndStream}
-                className="bg-red-600 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-red-700 transition-all active:scale-95 shadow-[0_15px_30px_rgba(239,68,68,0.3)] border border-white/10 flex items-center gap-3"
+                className="bg-red-600 text-white px-3 sm:px-6 lg:px-8 py-3 lg:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-[0.2em] hover:bg-red-700 transition-all active:scale-95 shadow-[0_10px_30px_rgba(239,68,68,0.3)] border border-white/10 flex items-center gap-2 sm:gap-3"
               >
-                <i className="fas fa-stop-circle text-lg"></i>
-                YAKUNLASH
+                <i className="fas fa-stop-circle text-sm sm:text-base lg:text-lg"></i>
+                <span className="hidden sm:inline">YAKUNLASH</span>
               </button>
             ) : (
               <button
                 onClick={handleLeave}
-                className="bg-white/10 text-white px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-red-600 transition-all active:scale-95 border border-white/5"
+                className="bg-white/10 text-white px-3 sm:px-6 lg:px-8 py-3 lg:py-4 rounded-xl sm:rounded-2xl font-black uppercase text-[9px] sm:text-[10px] tracking-[0.15em] sm:tracking-[0.2em] hover:bg-red-600 transition-all active:scale-95 border border-white/5 flex items-center gap-2"
               >
-                TARK ETISH
+                <i className="fas fa-sign-out-alt sm:hidden"></i>
+                <span className="hidden sm:inline">TARK ETISH</span>
               </button>
             )}
           </div>
         )}
       </div>
 
+      {/* Sidebar toggle (mobile) */}
+      <button
+        onClick={() => setShowSidebar(s => !s)}
+        className="lg:hidden fixed top-3 right-3 z-[1100] w-10 h-10 rounded-xl bg-black/70 backdrop-blur-xl border border-white/10 text-white flex items-center justify-center hover:bg-honey hover:text-black transition-all"
+        title={showSidebar ? "Yopish" : "Suhbat"}
+      >
+        <i className={`fas ${showSidebar ? 'fa-times' : 'fa-comments'} text-base`}></i>
+      </button>
+
+      {/* Sidebar overlay backdrop (mobile) */}
+      {showSidebar && (
+        <div
+          onClick={() => setShowSidebar(false)}
+          className="lg:hidden fixed inset-0 z-[1050] bg-black/60 backdrop-blur-sm"
+        />
+      )}
+
       {/* Sidebar Section */}
-      <div className="w-full lg:w-[450px] border-l border-white/10 flex flex-col bg-white/[0.01] backdrop-blur-3xl">
-        <div className="flex p-4 gap-3 bg-black/40">
+      <div className={`fixed lg:relative inset-y-0 right-0 z-[1060] lg:z-auto w-[88%] sm:w-[420px] lg:w-[450px] max-w-full border-l border-white/10 flex flex-col bg-[#0a0a0a]/95 lg:bg-white/[0.01] backdrop-blur-3xl transition-transform duration-300 ${showSidebar ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'}`}>
+        <div className="flex p-3 sm:p-4 gap-2 sm:gap-3 bg-black/40">
           <button
             onClick={() => setActiveTab('chat')}
             className={`flex-1 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${activeTab === 'chat' ? 'bg-honey text-white shadow-lg shadow-honey/20' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}

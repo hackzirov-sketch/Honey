@@ -129,6 +129,13 @@ body::before {
   box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
 }
 
+.mirror-mode {
+  transform: scaleX(-1);
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+
 .honey-text-gradient {
   background: linear-gradient(135deg, #FFF 30%, #FFB800 100%);
   -webkit-background-clip: text;
