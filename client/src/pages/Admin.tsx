@@ -4,7 +4,11 @@ import { API_BASE_URL, API_ENDPOINTS, authHeaders } from '@/config/api.config';
 import { useNavigate } from 'react-router-dom';
 
 const Admin: React.FC = () => {
-    const [activeTab, setActiveTab] = useState<'video' | 'book'>('video');
+    const [activeTab, setActiveTab] = useState<'video' | 'book' | 'users'>('video');
+    const [adminUsers, setAdminUsers] = useState<any[]>([]);
+    const [adminPending, setAdminPending] = useState<any[]>([]);
+    const [adminStats, setAdminStats] = useState<any>(null);
+    const [adminLoading, setAdminLoading] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const user = JSON.parse(localStorage.getItem('honey_user') || '{}');
     const navigate = useNavigate();
@@ -35,6 +39,53 @@ const Admin: React.FC = () => {
         }
         fetchMeta();
     }, []);
+
+    const fetchAdminData = async () => {
+        setAdminLoading(true);
+        try {
+            const [uRes, pRes, sRes] = await Promise.all([
+                fetch(`${API_BASE_URL}${API_ENDPOINTS.ADMIN.USERS}`, { headers: authHeaders() }),
+                fetch(`${API_BASE_URL}${API_ENDPOINTS.ADMIN.PENDING}`, { headers: authHeaders() }),
+                fetch(`${API_BASE_URL}${API_ENDPOINTS.ADMIN.STATS}`, { headers: authHeaders() }),
+            ]);
+            if (uRes.ok) setAdminUsers(await uRes.json());
+            if (pRes.ok) setAdminPending(await pRes.json());
+            if (sRes.ok) setAdminStats(await sRes.json());
+        } catch (e) { console.error(e); }
+        finally { setAdminLoading(false); }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'users') fetchAdminData();
+    }, [activeTab]);
+
+    const deleteUser = async (id: string, label: string) => {
+        if (!confirm(`"${label}" foydalanuvchini va uning barcha ma'lumotlarini butunlay o'chirmoqchimisiz?`)) return;
+        const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ADMIN.USER_DELETE(id)}`, {
+            method: 'DELETE', headers: authHeaders(),
+        });
+        if (res.ok) {
+            setAdminUsers(prev => prev.filter(u => u.id !== id));
+            fetchAdminData();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            alert(`Xato: ${err.message || res.status}`);
+        }
+    };
+
+    const deletePending = async (id: string, email: string) => {
+        if (!confirm(`"${email}" tasdiqlanmagan ro'yxatdan o'tishni o'chirmoqchimisiz?`)) return;
+        const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.ADMIN.PENDING_DELETE(id)}`, {
+            method: 'DELETE', headers: authHeaders(),
+        });
+        if (res.ok) {
+            setAdminPending(prev => prev.filter(p => p.id !== id));
+            fetchAdminData();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            alert(`Xato: ${err.message || res.status}`);
+        }
+    };
 
     const fetchMeta = async () => {
         try {
@@ -148,6 +199,13 @@ const Admin: React.FC = () => {
                     className={`px-8 py-3 rounded-2xl font-bold transition-all ${activeTab === 'book' ? 'bg-honey text-black scale-105 shadow-lg shadow-honey/20' : 'bg-white/5 text-white'}`}
                 >
                     Kitob Yuklash
+                </button>
+                <button
+                    onClick={() => setActiveTab('users')}
+                    data-testid="tab-users"
+                    className={`px-8 py-3 rounded-2xl font-bold transition-all ${activeTab === 'users' ? 'bg-honey text-black scale-105 shadow-lg shadow-honey/20' : 'bg-white/5 text-white'}`}
+                >
+                    Foydalanuvchilar
                 </button>
             </div>
 
@@ -279,6 +337,114 @@ const Admin: React.FC = () => {
                         {isLoading ? 'Yuklanmoqda...' : 'KITOBNI YUKLASH'}
                     </button>
                 </form>
+            )}
+
+            {activeTab === 'users' && (
+                <div className="space-y-8">
+                    {adminStats && (
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[
+                                { label: "Foydalanuvchilar", value: adminStats.users_total, icon: 'fa-users' },
+                                { label: "Tasdiqlangan", value: adminStats.users_verified, icon: 'fa-circle-check' },
+                                { label: "Adminlar", value: adminStats.users_admin, icon: 'fa-user-shield' },
+                                { label: "Kutayotganlar", value: adminStats.pending_registrations, icon: 'fa-hourglass-half' },
+                            ].map((s) => (
+                                <div key={s.label} className="glass p-5 rounded-2xl border border-white/10" data-testid={`stat-${s.label}`}>
+                                    <div className="flex items-center gap-3 mb-2 text-honey">
+                                        <i className={`fas ${s.icon} text-xl`}></i>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{s.label}</span>
+                                    </div>
+                                    <div className="text-3xl font-black text-white">{s.value}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="glass p-6 md:p-8 rounded-3xl">
+                        <div className="flex items-center justify-between mb-5">
+                            <h2 className="text-xl font-black uppercase tracking-widest text-honey">
+                                <i className="fas fa-users mr-3"></i>Foydalanuvchilar ({adminUsers.length})
+                            </h2>
+                            <button onClick={fetchAdminData} className="text-xs text-gray-400 hover:text-honey" data-testid="button-refresh-users">
+                                <i className={`fas fa-rotate ${adminLoading ? 'fa-spin' : ''}`}></i>
+                            </button>
+                        </div>
+                        {adminUsers.length === 0 ? (
+                            <p className="text-center text-gray-500 py-6">Hech kim yo'q</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {adminUsers.map(u => (
+                                    <div key={u.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 hover:bg-white/10 transition-all border border-white/10 rounded-2xl p-4" data-testid={`row-user-${u.id}`}>
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className="w-11 h-11 rounded-full bg-honey/20 text-honey flex items-center justify-center font-black shrink-0">
+                                                {u.username?.[0]?.toUpperCase() || '?'}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="font-bold text-white" data-testid={`text-username-${u.id}`}>{u.username}</span>
+                                                    {u.is_superuser && <span className="text-[9px] px-2 py-0.5 rounded-full bg-honey text-black font-black uppercase">Super</span>}
+                                                    {u.is_staff && !u.is_superuser && <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/20 text-white font-black uppercase">Admin</span>}
+                                                    {!u.is_verified && <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-black uppercase">Tasdiqlanmagan</span>}
+                                                </div>
+                                                <div className="text-xs text-gray-400 truncate">{u.email}</div>
+                                                {u.phone && <div className="text-xs text-gray-500 truncate">{u.phone}</div>}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-xs text-gray-500 md:text-right shrink-0">
+                                            <span className="hidden md:inline">{new Date(u.created_at).toLocaleDateString('uz-UZ')}</span>
+                                            <button
+                                                onClick={() => deleteUser(u.id, u.username)}
+                                                disabled={u.is_superuser || u.id === user.id}
+                                                data-testid={`button-delete-user-${u.id}`}
+                                                className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 disabled:opacity-30 disabled:cursor-not-allowed text-xs font-bold uppercase tracking-widest transition-all"
+                                            >
+                                                <i className="fas fa-trash mr-2"></i>O'chirish
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="glass p-6 md:p-8 rounded-3xl">
+                        <h2 className="text-xl font-black uppercase tracking-widest text-honey mb-5">
+                            <i className="fas fa-hourglass-half mr-3"></i>Kutayotgan ro'yxatdan o'tishlar ({adminPending.length})
+                        </h2>
+                        {adminPending.length === 0 ? (
+                            <p className="text-center text-gray-500 py-6">Kutayotgan yo'q</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {adminPending.map(p => {
+                                    const expired = new Date(p.expires_at).getTime() <= Date.now();
+                                    return (
+                                        <div key={p.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/5 border border-white/10 rounded-2xl p-4" data-testid={`row-pending-${p.id}`}>
+                                            <div className="min-w-0">
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className="font-bold text-white">{p.username}</span>
+                                                    {expired
+                                                        ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-black uppercase">Eskirgan</span>
+                                                        : <span className="text-[9px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300 font-black uppercase">Kutmoqda</span>
+                                                    }
+                                                </div>
+                                                <div className="text-xs text-gray-400 truncate">{p.email}</div>
+                                                {p.phone && <div className="text-xs text-gray-500">{p.phone}</div>}
+                                                <div className="text-[10px] text-gray-600 mt-1">Yaratilgan: {new Date(p.created_at).toLocaleString('uz-UZ')}</div>
+                                            </div>
+                                            <button
+                                                onClick={() => deletePending(p.id, p.email)}
+                                                data-testid={`button-delete-pending-${p.id}`}
+                                                className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold uppercase tracking-widest transition-all"
+                                            >
+                                                <i className="fas fa-trash mr-2"></i>O'chirish
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
             )}
         </div>
     );

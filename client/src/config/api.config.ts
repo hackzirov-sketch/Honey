@@ -91,6 +91,15 @@ export const API_ENDPOINTS = {
         CATEGORIES: "/api/v1/video/categories/",
     },
 
+    // --- Admin ---
+    ADMIN: {
+        USERS: "/api/v1/admin/users/",                           // GET
+        USER_DELETE: (id: string) => `/api/v1/admin/users/${id}/`,  // DELETE
+        PENDING: "/api/v1/admin/pending-registrations/",         // GET
+        PENDING_DELETE: (id: string) => `/api/v1/admin/pending-registrations/${id}/`, // DELETE
+        STATS: "/api/v1/admin/stats/",                            // GET
+    },
+
     // --- Live ---
     LIVE: {
         SESSIONS: "/api/v1/live/sessions/",

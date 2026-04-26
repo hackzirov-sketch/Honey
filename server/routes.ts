@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import type { Server } from "http";
 import { initDb } from "./core/db";
+import { adminRoutes } from "./modules/admin/route";
 import { authRoutes } from "./modules/auth/route";
 import { chatRoutes } from "./modules/chat/route";
 import { commentRoutes } from "./modules/comment/route";
@@ -22,6 +23,7 @@ export async function registerRoutes(
   app.use("/api/v1/video", videoRoutes());
   app.use("/api/v1/live", liveRoutes());
   app.use("/api/v1/comment", commentRoutes());
+  app.use("/api/v1/admin", adminRoutes());
 
   return httpServer;
 }
