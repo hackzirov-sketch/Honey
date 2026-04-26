@@ -136,10 +136,20 @@ const Classroom: React.FC = () => {
       const interval = setInterval(() => {
         fetchParticipants();
         fetchMessages();
-      }, 5000);
+      }, 2000);
       return () => clearInterval(interval);
     }
   }, [activeSession]);
+
+  // Auto-request camera/mic when viewer becomes approved
+  useEffect(() => {
+    if (!activeSession) return;
+    const me = participants.find(p => p.user?.id === user?.id || p.user?.username === user?.username);
+    const justApproved = me?.status === 'approved';
+    if (justApproved && !localStream && !permissionError) {
+      requestPermissions();
+    }
+  }, [participants, activeSession]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -99,8 +99,8 @@ const Messenger: React.FC = () => {
   useEffect(() => {
     if (!user) return;
     fetchChats();
-    // Polling har 15 sekundda yangilab turadi
-    const interval = setInterval(() => fetchChats(false), 15000);
+    // Polling har 4 sekundda yangilab turadi
+    const interval = setInterval(() => fetchChats(false), 4000);
     return () => clearInterval(interval);
   }, [user]);
 
@@ -149,6 +149,21 @@ const Messenger: React.FC = () => {
         fetchChatMessages(activeChat);
       }
     }
+  }, [activeChat, chats]);
+
+  // Aktiv chat xabarlarini polling orqali yangilab turish
+  useEffect(() => {
+    if (!activeChat || activeChat === 'ai') return;
+    let chatIdToPoll = activeChat;
+    if (activeChat === 'saved') {
+      const myChat = chats.find(c => !c.is_group && c.other_user?.id === user?.id);
+      if (!myChat) return;
+      chatIdToPoll = String(myChat.id);
+    }
+    const interval = setInterval(() => {
+      fetchChatMessages(chatIdToPoll);
+    }, 2500);
+    return () => clearInterval(interval);
   }, [activeChat, chats]);
 
   useEffect(() => {
