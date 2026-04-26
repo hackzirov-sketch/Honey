@@ -45,7 +45,8 @@ interface LiveSession {
   uploaderName?: string;
 }
 
-const AudioVisualizer = ({ stream, active }: { stream: MediaStream | null; active: boolean }) => {
+// Audio oqim darajasini (0-255) o'lchaydigan hook — visualizer va "gapirmoqda" effekti uchun
+const useAudioLevel = (stream: MediaStream | null, active: boolean) => {
   const [level, setLevel] = useState(0);
   const animationRef = useRef<number>();
 
@@ -54,49 +55,160 @@ const AudioVisualizer = ({ stream, active }: { stream: MediaStream | null; activ
       setLevel(0);
       return;
     }
+    const audioTracks = stream.getAudioTracks();
+    if (audioTracks.length === 0 || !audioTracks.some(t => t.enabled && t.readyState === 'live')) {
+      setLevel(0);
+      return;
+    }
 
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const analyser = audioContext.createAnalyser();
-    const source = audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
-    analyser.fftSize = 32;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    let audioContext: AudioContext | null = null;
+    let cancelled = false;
+    try {
+      audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.6;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
 
-    const updateLevel = () => {
-      analyser.getByteFrequencyData(dataArray);
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        sum += dataArray[i];
-      }
-      const average = sum / bufferLength;
-      setLevel(average);
-      animationRef.current = requestAnimationFrame(updateLevel);
-    };
-
-    updateLevel();
+      const tick = () => {
+        if (cancelled) return;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
+        setLevel(sum / bufferLength);
+        animationRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch (e) {
+      // ba'zi brauzerlar masofaviy oqimdan AudioContext ochishni rad etishi mumkin
+      setLevel(0);
+    }
 
     return () => {
+      cancelled = true;
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      audioContext.close();
+      try { audioContext && audioContext.close(); } catch {}
     };
   }, [stream, active]);
 
+  return level;
+};
+
+const SPEAKING_THRESHOLD = 18;
+
+const AudioVisualizer = ({ stream, active, size = 'md' }: { stream: MediaStream | null; active: boolean; size?: 'sm' | 'md' }) => {
+  const level = useAudioLevel(stream, active);
+  const bars = size === 'sm' ? [1, 2, 3, 4] : [1, 2, 3, 4, 5];
+  const containerH = size === 'sm' ? 'h-3' : 'h-5';
+  const containerW = size === 'sm' ? 'w-6' : 'w-10';
+  const barW = size === 'sm' ? 'w-[2px]' : 'w-[3px]';
   return (
-    <div className="flex items-end gap-1 h-6 w-12 justify-center">
-      {[1, 2, 3, 4, 5, 6].map((i) => {
-        const height = active ? Math.max(15, (level / 255) * 100 * (0.5 + Math.random() * 0.5)) : 10;
+    <div className={`flex items-end gap-[2px] ${containerH} ${containerW} justify-center`}>
+      {bars.map((i, idx) => {
+        const center = (bars.length - 1) / 2;
+        const distFromCenter = Math.abs(idx - center);
+        const phase = (i * 0.6);
+        const wave = active
+          ? Math.max(20, Math.min(100, (level / 255) * 100 * (0.7 + 0.3 * Math.sin((Date.now() / 120) + phase)) * (1 - distFromCenter * 0.12)))
+          : 18;
         return (
           <div
             key={i}
-            className={`w-1 rounded-full transition-all duration-150 ${active ? 'bg-honey shadow-[0_0_10px_#FFB800]' : 'bg-white/20'}`}
+            className={`${barW} rounded-full transition-[height,opacity] duration-100 ${active && level > SPEAKING_THRESHOLD ? 'bg-honey shadow-[0_0_8px_#FFB800]' : 'bg-white/30'}`}
             style={{
-              height: `${height}%`,
-              opacity: active ? 0.4 + (level / 255) * 0.6 : 0.2
+              height: `${wave}%`,
+              opacity: active ? 0.5 + (level / 255) * 0.5 : 0.35,
             }}
-          ></div>
+          />
         );
       })}
+    </div>
+  );
+};
+
+// Ishtirokchi kartochkasi — gapirayotganda asalrang chegara bilan porlaydi
+const ParticipantTile: React.FC<{
+  stream: MediaStream;
+  username: string;
+  avatar?: string;
+  hasVideo: boolean;
+  audioActive: boolean;
+  isMuted: boolean;
+}> = ({ stream, username, avatar, hasVideo, audioActive, isMuted }) => {
+  const level = useAudioLevel(stream, audioActive);
+  const isSpeaking = audioActive && level > SPEAKING_THRESHOLD;
+  return (
+    <div
+      className={`relative w-24 h-32 sm:w-32 sm:h-40 rounded-xl overflow-hidden shadow-2xl bg-[#2a2a2a] transition-all duration-150 ${isSpeaking ? 'border-2 border-honey shadow-[0_0_20px_rgba(255,184,0,0.6)] scale-[1.02]' : 'border border-white/15'}`}
+    >
+      <RemoteVideo stream={stream} className={`w-full h-full object-cover ${hasVideo ? 'opacity-100' : 'opacity-0'}`} />
+      {!hasVideo && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-center p-2">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-white">
+            <img src={resolveAvatar(avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
+          </div>
+          <p className="text-white/70 text-[9px] sm:text-[10px] font-semibold leading-tight">Kamera o'chiq</p>
+        </div>
+      )}
+      <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+        {isMuted ? (
+          <i className="fas fa-microphone-slash text-red-400 text-[9px]"></i>
+        ) : (
+          <AudioVisualizer stream={stream} active={audioActive} size="sm" />
+        )}
+        <span className="text-white text-[10px] font-semibold truncate">{username}</span>
+      </div>
+    </div>
+  );
+};
+
+// O'zining oynachasi (PiP) — gapirayotganida porlash effekti bilan
+const SelfViewPiP: React.FC<{
+  localStream: MediaStream | null;
+  isCameraOff: boolean;
+  isMuted: boolean;
+  attachLocalVideo: (el: HTMLVideoElement | null) => void;
+  requestPermissions: () => void;
+}> = ({ localStream, isCameraOff, isMuted, attachLocalVideo, requestPermissions }) => {
+  const audioActive = !!localStream && !isMuted;
+  const level = useAudioLevel(localStream, audioActive);
+  const isSpeaking = audioActive && level > SPEAKING_THRESHOLD;
+  return (
+    <div
+      className={`absolute bottom-24 sm:bottom-28 right-3 sm:right-5 w-28 h-40 sm:w-40 sm:h-52 rounded-xl overflow-hidden shadow-2xl bg-[#2a2a2a] z-[150] transition-all duration-150 ${isSpeaking ? 'border-2 border-honey shadow-[0_0_20px_rgba(255,184,0,0.6)]' : 'border border-white/15'}`}
+    >
+      {!isCameraOff && localStream ? (
+        <video
+          ref={attachLocalVideo}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover mirror-mode"
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center p-2">
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-white">
+            <img src="/default-avatar.png" className="w-full h-full object-cover" alt="" />
+          </div>
+          <p className="text-white/70 text-[10px] font-semibold leading-tight">{!localStream ? "Kamera yoq" : "Kamera o'chiq"}</p>
+          {!localStream && (
+            <button onClick={requestPermissions} className="bg-honey text-black px-2 py-1 rounded text-[9px] font-bold mt-1">
+              Yoqish
+            </button>
+          )}
+        </div>
+      )}
+      <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
+        {isMuted ? (
+          <i className="fas fa-microphone-slash text-red-400 text-[9px]"></i>
+        ) : (
+          <AudioVisualizer stream={localStream} active={audioActive} size="sm" />
+        )}
+        <span className="text-white text-[10px] font-semibold truncate">Siz</span>
+      </div>
     </div>
   );
 };
@@ -827,13 +939,25 @@ const Classroom: React.FC = () => {
                 );
               })()}
 
-              {/* Speaker name plate (bottom-left) */}
-              <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-2 bg-black/55 backdrop-blur-md px-3 py-1.5 rounded-md">
-                {isMuted && <i className="fas fa-microphone-slash text-red-400 text-xs"></i>}
-                <span className="text-white text-xs sm:text-sm font-semibold">
-                  {isStreamer ? `${activeSession.streamer?.username} (Siz)` : activeSession.streamer?.username}
-                </span>
-              </div>
+              {/* Speaker name plate (bottom-left) — ovoz darajasi vizualizatori bilan */}
+              {(() => {
+                const speakerStream: MediaStream | null = isStreamer
+                  ? localStream
+                  : (Array.from(remotePeers.values()).find(p => p.userId === activeSession.streamer?.id)?.stream ?? null);
+                const speakerActive = isStreamer ? !isMuted : true;
+                return (
+                  <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 flex items-center gap-2 bg-black/55 backdrop-blur-md px-3 py-1.5 rounded-md">
+                    {(isStreamer ? isMuted : false) ? (
+                      <i className="fas fa-microphone-slash text-red-400 text-xs"></i>
+                    ) : (
+                      <AudioVisualizer stream={speakerStream} active={speakerActive} size="md" />
+                    )}
+                    <span className="text-white text-xs sm:text-sm font-semibold">
+                      {isStreamer ? `${activeSession.streamer?.username} (Siz)` : activeSession.streamer?.username}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Other participants' video tiles (excluding the streamer who's already in main view, and self) */}
@@ -848,21 +972,17 @@ const Classroom: React.FC = () => {
                     const username = partInfo?.user?.username || 'Mehmon';
                     const avatar = partInfo?.user?.avatar;
                     const hasVideo = p.stream.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+                    const audioActive = !partInfo?.is_muted && p.stream.getAudioTracks().some(t => t.enabled && t.readyState === 'live');
                     return (
-                      <div key={sid} className="relative w-24 h-32 sm:w-32 sm:h-40 rounded-xl overflow-hidden border border-white/15 shadow-2xl bg-[#2a2a2a]">
-                        <RemoteVideo stream={p.stream} className={`w-full h-full object-cover ${hasVideo ? 'opacity-100' : 'opacity-0'}`} />
-                        {!hasVideo && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-center p-2">
-                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-white">
-                              <img src={resolveAvatar(avatar)} className="w-full h-full object-cover" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/default-avatar.png'; }} />
-                            </div>
-                            <p className="text-white/70 text-[9px] sm:text-[10px] font-semibold leading-tight">Kamera o'chiq</p>
-                          </div>
-                        )}
-                        <div className="absolute bottom-1 left-1 right-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
-                          <span className="text-white text-[10px] font-semibold truncate block">{username}</span>
-                        </div>
-                      </div>
+                      <ParticipantTile
+                        key={sid}
+                        stream={p.stream}
+                        username={username}
+                        avatar={avatar}
+                        hasVideo={hasVideo}
+                        audioActive={audioActive}
+                        isMuted={!!partInfo?.is_muted}
+                      />
                     );
                   })}
                 </div>
@@ -871,33 +991,13 @@ const Classroom: React.FC = () => {
 
             {/* Self-view PiP (only for non-streamer to see themselves) */}
             {!isStreamer && (
-              <div className="absolute bottom-24 sm:bottom-28 right-3 sm:right-5 w-28 h-40 sm:w-40 sm:h-52 rounded-xl overflow-hidden border border-white/15 shadow-2xl bg-[#2a2a2a] z-[150]">
-                {!isCameraOff && localStream ? (
-                  <video
-                    ref={attachLocalVideo}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover mirror-mode"
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-center p-2">
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-white">
-                      <img src="/default-avatar.png" className="w-full h-full object-cover" alt="" />
-                    </div>
-                    <p className="text-white/70 text-[10px] font-semibold leading-tight">{!localStream ? "Kamera yoq" : "Kamera o'chiq"}</p>
-                    {!localStream && (
-                      <button onClick={requestPermissions} className="bg-honey text-black px-2 py-1 rounded text-[9px] font-bold mt-1">
-                        Yoqish
-                      </button>
-                    )}
-                  </div>
-                )}
-                <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded">
-                  {isMuted && <i className="fas fa-microphone-slash text-red-400 text-[9px]"></i>}
-                  <span className="text-white text-[10px] font-semibold truncate">Siz</span>
-                </div>
-              </div>
+              <SelfViewPiP
+                localStream={localStream}
+                isCameraOff={isCameraOff}
+                isMuted={isMuted}
+                attachLocalVideo={attachLocalVideo}
+                requestPermissions={requestPermissions}
+              />
             )}
 
             {/* Pending request banner for streamer */}
