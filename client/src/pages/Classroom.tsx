@@ -595,6 +595,15 @@ const Classroom: React.FC = () => {
   const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
 
   const requestPermissions = async () => {
+    console.log("[Live] requestPermissions called", {
+      hasNavigator: !!navigator,
+      hasMediaDevices: !!navigator?.mediaDevices,
+      hasGetUserMedia: !!navigator?.mediaDevices?.getUserMedia,
+      isInIframe,
+      protocol: window.location.protocol,
+      origin: window.location.origin,
+    });
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setPermissionError("Brauzeringiz kamera kirishini qo'llab-quvvatlamaydi. Iltimos sahifani yangi tabda oching (HTTPS talab qilinadi).");
       return;
@@ -603,41 +612,76 @@ const Classroom: React.FC = () => {
       setPermissionError("Kamera/mikrofon ushbu oyna (iframe) ichida bloklangan. Iltimos pastdagi tugma orqali ilovani yangi tabda oching.");
       return;
     }
+
+    // 1-urinish: video + audio. Agar muvaffaqiyatsiz bo'lsa, alohida-alohida sinab ko'ramiz.
+    const tryGet = async (label: string, constraints: MediaStreamConstraints) => {
+      console.log(`[Live] getUserMedia attempt: ${label}`, constraints);
+      const s = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log(`[Live] ${label} OK — tracks:`,
+        s.getTracks().map(t => ({ kind: t.kind, label: t.label, enabled: t.enabled, readyState: t.readyState }))
+      );
+      return s;
+    };
+
+    let stream: MediaStream | null = null;
+    let lastError: any = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-        audio: true
+      stream = await tryGet("video+audio", {
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true,
       });
+    } catch (e: any) {
+      lastError = e;
+      console.warn("[Live] video+audio failed:", e?.name, e?.message);
+      // 2-urinish: faqat video (mikrofonsiz)
+      try {
+        stream = await tryGet("video-only", { video: true, audio: false });
+      } catch (e2: any) {
+        lastError = e2;
+        console.warn("[Live] video-only failed:", e2?.name, e2?.message);
+        // 3-urinish: faqat audio (kamerasiz)
+        try {
+          stream = await tryGet("audio-only", { video: false, audio: true });
+        } catch (e3: any) {
+          lastError = e3;
+          console.error("[Live] audio-only failed:", e3?.name, e3?.message);
+        }
+      }
+    }
+
+    if (stream) {
       setLocalStream(stream);
       setPermissionError(null);
-
-      if (isCameraOff) {
-        stream.getVideoTracks().forEach(t => t.enabled = false);
+      if (isCameraOff) stream.getVideoTracks().forEach(t => t.enabled = false);
+      if (isMuted) stream.getAudioTracks().forEach(t => t.enabled = false);
+      // Ogohlantirish: agar video yo'q bo'lsa, foydalanuvchiga bildiramiz
+      if (stream.getVideoTracks().length === 0) {
+        setPermissionError("Faqat mikrofon ulandi (kamera mavjud emas yoki bloklangan).");
       }
-      if (isMuted) {
-        stream.getAudioTracks().forEach(t => t.enabled = false);
-      }
-    } catch (e: any) {
-      // DOMException ning name/message xususiyatlari enumerable emas — qo'lda log qilamiz.
-      console.error("Permission error:", { name: e?.name, message: e?.message, error: e });
-      const name = e?.name || '';
-      const message = String(e?.message || '');
-      let msg = "Kamera yoki mikrofonga ruxsat berilmadi.";
-      if (/permissions policy|permission policy|disallowed by permissions policy/i.test(message)) {
-        msg = "Kamera/mikrofon ushbu oyna (iframe) ichida bloklangan. Iltimos ilovani yangi tabda oching.";
-      } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        msg = "Siz kamera/mikrofonga ruxsat bermadingiz. Brauzer manzil qatori yonidagi qulfni bosib ruxsat bering va qayta urinib ko'ring.";
-      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        msg = "Kamera yoki mikrofon topilmadi. Qurilmangiz ulanganligini tekshiring.";
-      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
-        msg = "Kamera band — boshqa dastur foydalanmoqda. O'sha dasturlarni yopib qayta urinib ko'ring.";
-      } else if (name === 'SecurityError' || (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost')) {
-        msg = "Xavfsiz ulanish (HTTPS) kerak. Sahifani yangi tabda HTTPS orqali oching.";
-      } else if (message) {
-        msg = `Kamera/mikrofon xatosi: ${message}`;
-      }
-      setPermissionError(msg);
+      return;
     }
+
+    const e = lastError;
+    console.error("Permission error:", { name: e?.name, message: e?.message, error: e });
+    const name = e?.name || '';
+    const message = String(e?.message || '');
+    let msg = "Kamera yoki mikrofonga ruxsat berilmadi.";
+    if (/permissions policy|permission policy|disallowed by permissions policy/i.test(message)) {
+      msg = "Kamera/mikrofon ushbu oyna (iframe) ichida bloklangan. Iltimos ilovani yangi tabda oching.";
+    } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      msg = "Siz kamera/mikrofonga ruxsat bermadingiz. Brauzer manzil qatori yonidagi qulfni bosib \"Allow\" tugmasini tanlang va qayta urinib ko'ring.";
+    } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      msg = "Kamera yoki mikrofon topilmadi. Qurilma ulanganligini va boshqa ilova bilan band emasligini tekshiring.";
+    } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+      msg = "Kamera band — boshqa dastur (Zoom, Meet, OBS, Skype va h.k.) foydalanmoqda. Ularni yopib qayta urinib ko'ring.";
+    } else if (name === 'OverconstrainedError') {
+      msg = "Kamera so'ralgan formatda ishlamaydi. Boshqa kamera tanlang yoki sahifani yangilang.";
+    } else if (name === 'SecurityError' || (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost')) {
+      msg = "Xavfsiz ulanish (HTTPS) kerak. Sahifani yangi tabda HTTPS orqali oching.";
+    } else if (message) {
+      msg = `Kamera/mikrofon xatosi (${name || 'noma\'lum'}): ${message}`;
+    }
+    setPermissionError(msg);
   };
 
   const openInNewTab = () => {
