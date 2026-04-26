@@ -180,15 +180,35 @@ const Classroom: React.FC = () => {
     };
   }, [localStream]);
 
-  // Handle video element attachment
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (localVideoRef.current && localStream) {
-        localVideoRef.current.srcObject = localStream;
+  // Callback ref: video elementi mount bo'lgan zahoti srcObject ni ulab, play() chaqiramiz.
+  // Bu konditsional render qilingan video elementlar uchun ishonchli ishlaydi.
+  const attachLocalVideo = useCallback((el: HTMLVideoElement | null) => {
+    localVideoRef.current = el;
+    if (!el) return;
+    const s = localStreamRef.current;
+    if (s && el.srcObject !== s) {
+      el.srcObject = s;
+    }
+    if (s) {
+      const playPromise = el.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => { /* autoplay bloklanishi mumkin, e'tibor bermaymiz */ });
       }
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [localStream, activeSession]);
+    }
+  }, []);
+
+  // localStream o'zgarganda mavjud video elementga ham qayta ulaymiz
+  useEffect(() => {
+    const el = localVideoRef.current;
+    if (!el) return;
+    if (localStream && el.srcObject !== localStream) {
+      el.srcObject = localStream;
+      const playPromise = el.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(() => {});
+      }
+    }
+  }, [localStream]);
 
   useEffect(() => {
     fetchSessions();
@@ -754,7 +774,7 @@ const Classroom: React.FC = () => {
               {isStreamer ? (
                 <>
                   <video
-                    ref={localVideoRef}
+                    ref={attachLocalVideo}
                     autoPlay
                     playsInline
                     muted
@@ -854,7 +874,7 @@ const Classroom: React.FC = () => {
               <div className="absolute bottom-24 sm:bottom-28 right-3 sm:right-5 w-28 h-40 sm:w-40 sm:h-52 rounded-xl overflow-hidden border border-white/15 shadow-2xl bg-[#2a2a2a] z-[150]">
                 {!isCameraOff && localStream ? (
                   <video
-                    ref={localVideoRef}
+                    ref={attachLocalVideo}
                     autoPlay
                     playsInline
                     muted

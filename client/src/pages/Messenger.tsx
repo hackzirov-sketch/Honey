@@ -417,7 +417,7 @@ const Messenger: React.FC = () => {
         body: formData,
       });
       if (res.ok) {
-        await fetchChatMessages(chatId);
+        await fetchChatMessages(chatId, false);
       } else {
         const err = await res.json();
         alert(err.error || "Xabar yuborishda xatolik");
