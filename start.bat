@@ -5,7 +5,7 @@ color 0A
 title Honey - Single TypeScript Service
 
 set "ROOT=%~dp0"
-set "FRONTEND=%ROOT%frontend"
+set "FRONTEND=%ROOT%"
 set "MODE=%~1"
 if "%MODE%"=="" set "MODE=dev"
 
@@ -16,9 +16,9 @@ echo   Single Node + TypeScript service
 echo ============================================================
 echo.
 
-if not exist "%FRONTEND%\package.json" (
+if not exist "%FRONTEND%package.json" (
   color 0C
-  echo [ERROR] frontend\package.json topilmadi.
+  echo [ERROR] package.json topilmadi.
   echo Papka: %FRONTEND%
   echo.
   pause
@@ -91,7 +91,7 @@ set "PORT=%PORT%"
 if "%PORT%"=="" set "PORT=10000"
 call :pick_port
 set "SQLITE_PATH=%SQLITE_PATH%"
-if "%SQLITE_PATH%"=="" set "SQLITE_PATH=%FRONTEND%\data\honey.sqlite"
+if "%SQLITE_PATH%"=="" set "SQLITE_PATH=%FRONTEND%data\honey.sqlite"
 
 echo [3/4] Production build...
 call npm run build
@@ -112,7 +112,7 @@ set "PORT=%PORT%"
 if "%PORT%"=="" set "PORT=5000"
 call :pick_port
 set "SQLITE_PATH=%SQLITE_PATH%"
-if "%SQLITE_PATH%"=="" set "SQLITE_PATH=%FRONTEND%\data\honey.sqlite"
+if "%SQLITE_PATH%"=="" set "SQLITE_PATH=%FRONTEND%data\honey.sqlite"
 
 echo [3/4] Local data path:
 echo %SQLITE_PATH%
@@ -127,15 +127,7 @@ call npm run dev
 goto :end
 
 :legacy
-echo [3/4] Legacy mode: Django backend + Vite frontend
-echo Bu mode faqat eski backend kerak bolsa ishlatiladi.
-echo.
-start "HONEY-BACKEND-LEGACY" cmd /k "%ROOT%_run_backend.bat"
-timeout /t 3 /nobreak >nul
-start "HONEY-FRONTEND-LEGACY" cmd /k "%ROOT%_run_frontend.bat"
-timeout /t 2 /nobreak >nul
-start "" "http://localhost:5173"
-echo [OK] Legacy oynalar ochildi.
+echo [3/4] Legacy mode: Django ta'qiqlangan. Bu faqat TypeScript single-node.
 pause
 exit /b 0
 

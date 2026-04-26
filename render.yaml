@@ -2,7 +2,6 @@ services:
   - type: web
     name: honey
     runtime: node
-    rootDir: frontend
     buildCommand: npm install && npm run build
     startCommand: npm start
     healthCheckPath: /health
@@ -12,7 +11,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: SQLITE_PATH
-        value: /opt/render/project/src/frontend/data/honey.sqlite
+        value: /opt/render/project/src/data/honey.sqlite
       - key: VITE_API_URL
         value: ""
       - key: GEMINI_API_KEY
