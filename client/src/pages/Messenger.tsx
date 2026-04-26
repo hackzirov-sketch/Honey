@@ -148,25 +148,36 @@ const Messenger: React.FC = () => {
     }
   };
 
-  // Chat tanlanganda xabarlarni yukla
+  // Chat tanlanganda xabarlarni yukla — faqat haqiqatda boshqa chat ochilganda reset qilinadi
+  const lastLoadedChatRef = useRef<string | null>(null);
   useEffect(() => {
-    if (activeChat && activeChat !== 'ai') {
-      if (activeChat === 'saved') {
-        const myChat = chats.find(c => !c.is_group && c.other_user?.id === user?.id);
-        if (myChat) {
-          setChatMessages([]);
-          fetchChatMessages(String(myChat.id));
-        } else {
-          setChatMessages([]);
-        }
-      } else {
-        setChatMessages([]);
-        fetchChatMessages(activeChat);
-      }
+    if (!activeChat || activeChat === 'ai') {
+      lastLoadedChatRef.current = activeChat;
+      return;
     }
+
+    let chatIdToLoad = activeChat;
+    if (activeChat === 'saved') {
+      const myChat = chats.find(c => !c.is_group && c.other_user?.id === user?.id);
+      if (!myChat) {
+        if (lastLoadedChatRef.current !== 'saved-empty') {
+          setChatMessages([]);
+          lastLoadedChatRef.current = 'saved-empty';
+        }
+        return;
+      }
+      chatIdToLoad = String(myChat.id);
+    }
+
+    const targetKey = activeChat === 'saved' ? `saved:${chatIdToLoad}` : chatIdToLoad;
+    if (lastLoadedChatRef.current === targetKey) return;
+
+    lastLoadedChatRef.current = targetKey;
+    setChatMessages([]);
+    fetchChatMessages(chatIdToLoad);
   }, [activeChat, chats]);
 
-  // Aktiv chat xabarlarini polling orqali yangilab turish
+  // Aktiv chat xabarlarini polling orqali fon rejimida yangilab turish (yuklanish belgisisiz)
   useEffect(() => {
     if (!activeChat || activeChat === 'ai') return;
     let chatIdToPoll = activeChat;
@@ -176,7 +187,7 @@ const Messenger: React.FC = () => {
       chatIdToPoll = String(myChat.id);
     }
     const interval = setInterval(() => {
-      fetchChatMessages(chatIdToPoll);
+      fetchChatMessages(chatIdToPoll, false);
     }, 2500);
     return () => clearInterval(interval);
   }, [activeChat, chats]);
