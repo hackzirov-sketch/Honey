@@ -115,14 +115,36 @@ const Auth: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
       }
       // Token saqlash
       setAuthToken(data.access, data.refresh);
-      localStorage.setItem(
-        "honey_user",
-        JSON.stringify({
-          name: formData.username,
-          email: formData.email,
-          picture: "",
-        })
-      );
+      // To'liq profil ma'lumotini olish (id, username va boshqalar uchun)
+      try {
+        const profRes = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROFILE.ME}`, {
+          headers: { Authorization: `Bearer ${data.access}` },
+        });
+        const prof = profRes.ok ? await profRes.json() : null;
+        localStorage.setItem(
+          "honey_user",
+          JSON.stringify({
+            id: prof?.id,
+            name: prof?.name || prof?.username || formData.username,
+            username: prof?.username || formData.username,
+            email: prof?.email || formData.email,
+            picture: prof?.avatar || prof?.picture || "",
+            is_verified: prof?.is_verified ?? true,
+            is_superuser: prof?.is_superuser,
+            is_staff: prof?.is_staff,
+          })
+        );
+      } catch {
+        localStorage.setItem(
+          "honey_user",
+          JSON.stringify({
+            name: formData.username,
+            username: formData.username,
+            email: formData.email,
+            picture: "",
+          })
+        );
+      }
       onAuth();
     } catch {
       setError("Server bilan aloqa o'rnatib bo'lmadi.");
@@ -152,10 +174,11 @@ const Auth: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
       }
       setAuthToken(data.access, data.refresh);
       const userData = {
-        name: data.user?.username || formData.username,
+        id: data.user?.id,
+        name: data.user?.name || data.user?.username || formData.username,
         username: data.user?.username || formData.username,
-        email: formData.email,
-        picture: data.user?.avatar || "",
+        email: data.user?.email || formData.email,
+        picture: data.user?.avatar || data.user?.picture || "",
         is_verified: data.user?.is_verified,
         is_superuser: data.user?.is_superuser,
         is_staff: data.user?.is_staff,

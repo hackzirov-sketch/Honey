@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { API_BASE_URL, API_ENDPOINTS, getAuthToken } from '@/config/api.config';
+import { API_BASE_URL, API_ENDPOINTS, getAuthToken, authHeaders } from '@/config/api.config';
 import { resolveAvatar } from '@/lib/utils';
 
 interface LiveSession {
@@ -86,7 +86,37 @@ interface Message {
 }
 
 const Classroom: React.FC = () => {
-  const user = JSON.parse(localStorage.getItem('honey_user') || 'null');
+  const [user, setUser] = useState<any>(() => JSON.parse(localStorage.getItem('honey_user') || 'null'));
+
+  // Eski sessiyalarda saqlangan foydalanuvchida id/username bo'lmasligi mumkin —
+  // profilni qaytadan yuklab localStorage'ni to'ldiramiz, aks holda Live ekranida
+  // "men kimman" ni topa olmaymiz va qabul qilingan bo'lsak ham kira olmaymiz.
+  useEffect(() => {
+    if (user && user.id && user.username) return;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.PROFILE.ME}`, {
+          headers: authHeaders(),
+        });
+        if (!res.ok) return;
+        const prof = await res.json();
+        const merged = {
+          ...(user || {}),
+          id: prof?.id ?? user?.id,
+          name: prof?.name || prof?.username || user?.name,
+          username: prof?.username || user?.username,
+          email: prof?.email || user?.email,
+          picture: prof?.avatar || prof?.picture || user?.picture || '',
+          is_verified: prof?.is_verified,
+          is_superuser: prof?.is_superuser,
+          is_staff: prof?.is_staff,
+        };
+        localStorage.setItem('honey_user', JSON.stringify(merged));
+        setUser(merged);
+      } catch { /* offline */ }
+    })();
+  }, []);
+
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [activeSession, setActiveSession] = useState<LiveSession | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
