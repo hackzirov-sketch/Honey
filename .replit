@@ -42,3 +42,11 @@ waitForPort = 5000
 [agent]
 stack = "FULLSTACK_JS"
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = "587"
+EMAIL_USE_SSL = "false"
+DEFAULT_FROM_EMAIL = "Honey <ahmadjonzokirov54@gmail.com>"
