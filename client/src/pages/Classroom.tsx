@@ -589,9 +589,18 @@ const Classroom: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
+  // Ilova Replit/canvas iframe ichida ochilganmi? Iframe ichida getUserMedia
+  // odatda Permission Policy tomonidan bloklanadi (parent `allow="camera; microphone"`
+  // o'rnatmagan bo'lsa). Bu holda foydalanuvchini yangi tabga yo'naltiramiz.
+  const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+
   const requestPermissions = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setPermissionError("Brauzeringiz kamera kirishini qo'llab-quvvatlamaydi. Iltimos sahifani yangi tabda oching (HTTPS talab qilinadi).");
+      return;
+    }
+    if (isInIframe) {
+      setPermissionError("Kamera/mikrofon ushbu oyna (iframe) ichida bloklangan. Iltimos pastdagi tugma orqali ilovani yangi tabda oching.");
       return;
     }
     try {
@@ -609,24 +618,40 @@ const Classroom: React.FC = () => {
         stream.getAudioTracks().forEach(t => t.enabled = false);
       }
     } catch (e: any) {
-      console.error("Permission error:", e);
+      // DOMException ning name/message xususiyatlari enumerable emas — qo'lda log qilamiz.
+      console.error("Permission error:", { name: e?.name, message: e?.message, error: e });
       const name = e?.name || '';
+      const message = String(e?.message || '');
       let msg = "Kamera yoki mikrofonga ruxsat berilmadi.";
-      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      if (/permissions policy|permission policy|disallowed by permissions policy/i.test(message)) {
+        msg = "Kamera/mikrofon ushbu oyna (iframe) ichida bloklangan. Iltimos ilovani yangi tabda oching.";
+      } else if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
         msg = "Siz kamera/mikrofonga ruxsat bermadingiz. Brauzer manzil qatori yonidagi qulfni bosib ruxsat bering va qayta urinib ko'ring.";
       } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
         msg = "Kamera yoki mikrofon topilmadi. Qurilmangiz ulanganligini tekshiring.";
       } else if (name === 'NotReadableError' || name === 'TrackStartError') {
         msg = "Kamera band — boshqa dastur foydalanmoqda. O'sha dasturlarni yopib qayta urinib ko'ring.";
-      } else if (name === 'SecurityError' || window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      } else if (name === 'SecurityError' || (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost')) {
         msg = "Xavfsiz ulanish (HTTPS) kerak. Sahifani yangi tabda HTTPS orqali oching.";
+      } else if (message) {
+        msg = `Kamera/mikrofon xatosi: ${message}`;
       }
       setPermissionError(msg);
     }
   };
 
   const openInNewTab = () => {
-    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+    // window.top mavjud bo'lsa unda ochish — Replit iframe konteynerida turibmiz va biz haqiqiy URLga o'tmoqchimiz.
+    const url = window.location.href;
+    try {
+      const w = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!w) {
+        // Pop-up bloklangan bo'lsa, mavjud tabni yangilash
+        window.location.href = url;
+      }
+    } catch {
+      window.location.href = url;
+    }
   };
 
   const toggleMute = () => {
@@ -731,6 +756,27 @@ const Classroom: React.FC = () => {
           <i className="fas fa-arrow-left"></i>
           <span>Orqaga</span>
         </a>
+
+        {isInIframe && (
+          <div className="mb-6 sm:mb-8 bg-gradient-to-r from-honey/15 to-amber-400/10 border border-honey/40 rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-honey/20 text-honey flex items-center justify-center text-xl sm:text-2xl shrink-0">
+              <i className="fas fa-triangle-exclamation"></i>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-white font-black uppercase tracking-wide text-sm sm:text-base">Kamera/mikrofon ushbu oynada ishlamaydi</h3>
+              <p className="text-gray-300 text-xs sm:text-sm mt-1 leading-snug">
+                Jonli efirda kamera va mikrofondan foydalanish uchun ilovani <b>yangi tabda</b> oching. Bu yerda u Replit ko'rish oynasi (iframe) ichida ishlayapti — brauzer xavfsizlik uchun media-qurilmalarni bloklaydi.
+              </p>
+            </div>
+            <button
+              onClick={openInNewTab}
+              data-testid="button-open-new-tab-lobby"
+              className="bg-honey text-black px-5 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-honey/30 shrink-0 whitespace-nowrap"
+            >
+              <i className="fas fa-external-link-alt mr-2"></i>Yangi tabda ochish
+            </button>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-6 mb-8 sm:mb-12">
           <div>
