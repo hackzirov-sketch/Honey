@@ -49,3 +49,15 @@ services:
         sync: false
       - key: FRONTEND_URL
         value: https://honey.onrender.com
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_SSL
+        value: "false"
+      - key: EMAIL_HOST_USER
+        value: ahmadjonzokirov54@gmail.com
+      - key: DEFAULT_FROM_EMAIL
+        value: ahmadjonzokirov54@gmail.com
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
