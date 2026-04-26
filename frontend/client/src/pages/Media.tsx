@@ -20,9 +20,12 @@ interface BackendVideo {
   likes_count: number;
   is_liked: boolean;
   category_name: string;
+  source_type?: VideoSourceType;
   comments: any[];
   uploader?: { username: string; avatar?: string };
 }
+
+type VideoSourceType = 'upload' | 'youtube' | 'instagram' | 'external' | 'unknown';
 
 interface Video {
   id: string;
@@ -38,12 +41,79 @@ interface Video {
   views: string;
   category: string;
   description: string;
+  sourceType: VideoSourceType;
   comments: any[];
   uploaderAvatar?: string;
   uploaderName?: string;
 }
 
 const CATEGORIES = ['Barchasi', 'Dizayn', 'Dasturlash', 'Biznes', 'Marketing', 'Psixologiya'];
+
+const toAssetUrl = (value?: string) => {
+  if (!value) return '';
+  return value.startsWith('http') ? value : `${API_BASE_URL}${value}`;
+};
+
+const parseExternalUrl = (value?: string) => {
+  if (!value) return null;
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+};
+
+const extractYoutubeId = (url?: string): string => {
+  const parsed = parseExternalUrl(url);
+  if (!parsed) return '';
+
+  const host = parsed.hostname.replace(/^www\./, '');
+  if (host === 'youtu.be') return parsed.pathname.split('/').filter(Boolean)[0] || '';
+  if (!host.endsWith('youtube.com') && !host.endsWith('youtube-nocookie.com')) return '';
+
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  if (parsed.pathname === '/watch') return parsed.searchParams.get('v') || '';
+  if (parts[0] === 'embed' || parts[0] === 'shorts' || parts[0] === 'live') return parts[1] || '';
+  return '';
+};
+
+const extractInstagramEmbedUrl = (url?: string): string => {
+  const parsed = parseExternalUrl(url);
+  if (!parsed) return '';
+
+  const host = parsed.hostname.replace(/^www\./, '');
+  if (!host.endsWith('instagram.com')) return '';
+
+  const match = parsed.pathname.match(/^\/(p|reel|tv)\/([^/?#]+)/i);
+  return match ? `https://www.instagram.com/${match[1]}/${match[2]}/embed` : '';
+};
+
+const detectSourceType = (videoUrl?: string, embedUrl?: string): VideoSourceType => {
+  if (videoUrl?.startsWith('/uploads/')) return 'upload';
+  if (extractYoutubeId(videoUrl) || extractYoutubeId(embedUrl)) return 'youtube';
+  if (extractInstagramEmbedUrl(videoUrl) || extractInstagramEmbedUrl(embedUrl)) return 'instagram';
+  return videoUrl || embedUrl ? 'external' : 'unknown';
+};
+
+const resolveEmbedUrl = (videoUrl?: string, embedUrl?: string) => {
+  if (embedUrl) return embedUrl;
+  const youtubeId = extractYoutubeId(videoUrl);
+  if (youtubeId) return `https://www.youtube.com/embed/${youtubeId}`;
+  return extractInstagramEmbedUrl(videoUrl);
+};
+
+const playbackUrl = (video: Video) => {
+  if (!video.embedUrl) return '';
+  if (video.sourceType !== 'youtube') return video.embedUrl;
+  return `${video.embedUrl}${video.embedUrl.includes('?') ? '&' : '?'}autoplay=1&rel=0`;
+};
+
+const sourceMeta = (source: VideoSourceType) => {
+  if (source === 'youtube') return { label: 'YouTube', icon: 'fab fa-youtube', color: 'text-red-300 bg-red-500/15 border-red-400/20' };
+  if (source === 'instagram') return { label: 'Instagram', icon: 'fab fa-instagram', color: 'text-pink-200 bg-pink-500/15 border-pink-400/20' };
+  if (source === 'upload') return { label: 'Honey', icon: 'fas fa-file-video', color: 'text-honey bg-honey/10 border-honey/20' };
+  return { label: 'Video', icon: 'fas fa-play', color: 'text-white/70 bg-white/10 border-white/10' };
+};
 
 // --- Video Comments Component ---
 const VideoComments: React.FC<{ videoId: string; comments: any[]; onCommentAdded: () => void }> = ({ videoId, comments, onCommentAdded }) => {
@@ -135,14 +205,6 @@ const Media: React.FC = () => {
       v.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const extractYoutubeId = (url: string): string => {
-    if (!url) return '';
-    if (url.includes('v=')) return url.split('v=')[1]?.split('&')[0] || '';
-    if (url.includes('be/')) return url.split('be/')[1]?.split('?')[0] || '';
-    if (url.includes('embed/')) return url.split('embed/')[1]?.split('?')[0] || '';
-    return '';
-  };
-
   const fetchVideos = async () => {
     setIsLoading(true);
     try {
@@ -162,21 +224,25 @@ const Media: React.FC = () => {
         const data = await res.json();
         const list: BackendVideo[] = data.results || data;
         const mapped: Video[] = list.map(v => {
-          const yid = extractYoutubeId(v.video);
+          const videoUrl = v.video || v.file || '';
+          const sourceType = v.source_type || detectSourceType(videoUrl, v.video_embed);
+          const yid = extractYoutubeId(videoUrl || v.video_embed);
+          const embedUrl = resolveEmbedUrl(videoUrl, v.video_embed);
           return {
             id: v.id,
             title: v.title,
             channel: 'Honey Academy',
-            url: v.video || '',
-            embedUrl: v.video_embed || (yid ? `https://www.youtube.com/embed/${yid}` : ''),
-            file: v.file,
-            thumbnail: v.cover || '',
+            url: videoUrl,
+            embedUrl,
+            file: sourceType === 'upload' ? toAssetUrl(videoUrl) : '',
+            thumbnail: v.cover ? toAssetUrl(v.cover) : (yid ? `https://img.youtube.com/vi/${yid}/hqdefault.jpg` : ''),
             duration: '12:00',
             likes: v.likes_count || 0,
             isLiked: v.is_liked || false,
-            views: v.views >= 1000 ? (v.views / 1000).toFixed(1) + 'K' : v.views.toString(),
+            views: (v.views || 0) >= 1000 ? ((v.views || 0) / 1000).toFixed(1) + 'K' : String(v.views || 0),
             category: v.category_name || 'Barchasi',
             description: v.description || "",
+            sourceType,
             comments: v.comments || [],
             uploaderAvatar: v.uploader?.avatar,
             uploaderName: v.uploader?.username
@@ -313,7 +379,13 @@ const Media: React.FC = () => {
                   poster={selectedVideo.thumbnail}
                 ></video>
               ) : selectedVideo.embedUrl ? (
-                <iframe title={selectedVideo.title} src={`${selectedVideo.embedUrl}?autoplay=1&rel=0`} className="w-full h-full relative z-0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
+                <iframe
+                  title={selectedVideo.title}
+                  src={playbackUrl(selectedVideo)}
+                  className="w-full h-full relative z-0"
+                  allow="autoplay; encrypted-media; picture-in-picture; web-share"
+                  allowFullScreen
+                ></iframe>
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-4">
                   <i className="fas fa-play-circle text-8xl text-honey/20"></i>
@@ -327,6 +399,23 @@ const Media: React.FC = () => {
                 <div>
                   <span className="text-honey font-black text-[10px] uppercase tracking-widest mb-2 block">{selectedVideo.category}</span>
                   <h1 className="text-2xl sm:text-4xl font-black text-white uppercase tracking-tighter">{selectedVideo.title}</h1>
+                  <div className="flex flex-wrap items-center gap-3 mt-4">
+                    <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest ${sourceMeta(selectedVideo.sourceType).color}`}>
+                      <i className={sourceMeta(selectedVideo.sourceType).icon}></i>
+                      {sourceMeta(selectedVideo.sourceType).label}
+                    </div>
+                    {selectedVideo.url && selectedVideo.sourceType !== 'upload' && (
+                      <a
+                        href={selectedVideo.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all"
+                      >
+                        <i className="fas fa-external-link-alt"></i>
+                        Manba
+                      </a>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-4">
                   <button
@@ -362,7 +451,13 @@ const Media: React.FC = () => {
                 {videos.filter(v => v.id !== selectedVideo.id).slice(0, 6).map(v => (
                   <div key={v.id} onClick={() => setSelectedVideo(v)} className="flex gap-4 group cursor-pointer hover:scale-105 transition-all">
                     <div className="w-32 aspect-video rounded-2xl overflow-hidden shrink-0 border border-white/10 group-hover:border-honey transition-all">
-                      <img src={v.thumbnail} className="w-full h-full object-cover" alt={v.title} />
+                      {v.thumbnail ? (
+                        <img src={v.thumbnail} className="w-full h-full object-cover" alt={v.title} />
+                      ) : (
+                        <div className="w-full h-full bg-white/5 flex items-center justify-center">
+                          <i className={`${sourceMeta(v.sourceType).icon} text-white/20`}></i>
+                        </div>
+                      )}
                     </div>
                     <div className="py-1">
                       <h5 className="font-black text-[12px] text-white uppercase line-clamp-2 group-hover:text-honey transition-colors">{v.title}</h5>
@@ -452,10 +547,15 @@ const Media: React.FC = () => {
                     ) : video.file ? (
                       <video src={video.file} className="w-full h-full object-cover opacity-60" preload="metadata" />
                     ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-white/5">
-                        <i className="fas fa-play-circle text-6xl text-white/5"></i>
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-white/5 gap-3">
+                        <i className={`${sourceMeta(video.sourceType).icon} text-6xl opacity-30`}></i>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{sourceMeta(video.sourceType).label}</span>
                       </div>
                     )}
+                    <div className={`absolute top-4 left-4 z-10 px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${sourceMeta(video.sourceType).color}`}>
+                      <i className={sourceMeta(video.sourceType).icon}></i>
+                      <span>{sourceMeta(video.sourceType).label}</span>
+                    </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 scale-50 group-hover:scale-100">
                       <div className="w-20 h-20 bg-honey text-white rounded-full flex items-center justify-center text-3xl shadow-[0_0_50px_rgba(255,184,0,0.5)]">
@@ -504,7 +604,7 @@ const Media: React.FC = () => {
                       <img src={v.thumbnail} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" alt={v.title} />
                     ) : (
                       <div className="w-full h-full bg-white/5 flex items-center justify-center">
-                        <i className="fas fa-play text-white/10"></i>
+                        <i className={`${sourceMeta(v.sourceType).icon} text-white/20`}></i>
                       </div>
                     )}
                     <div className="absolute bottom-2 right-2 bg-black/80 px-3 py-1 rounded-lg text-[8px] font-black text-white uppercase line-clamp-1 max-w-[80%]">{v.title}</div>

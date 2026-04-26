@@ -11,6 +11,8 @@ const Admin: React.FC = () => {
 
     // Form states for Video
     const [videoData, setVideoData] = useState({ title: '', description: '', category: '' });
+    const [videoSource, setVideoSource] = useState<'file' | 'youtube' | 'instagram'>('file');
+    const [videoUrl, setVideoUrl] = useState('');
     const [videoFile, setVideoFile] = useState<File | null>(null);
     const [videoCover, setVideoCover] = useState<File | null>(null);
 
@@ -60,14 +62,22 @@ const Admin: React.FC = () => {
         e.preventDefault();
         if (!videoData.title) return alert("Video sarlavhasini kiriting!");
         if (!videoData.category) return alert("Kategoriyani tanlang!");
-        if (!videoFile) return alert("Video faylini tanlang!");
+        if (videoSource === 'file' && !videoFile) return alert("Video faylini tanlang!");
+        if (videoSource !== 'file' && !videoUrl.trim()) return alert("YouTube yoki Instagram havolasini kiriting!");
 
         setIsLoading(true);
         const formData = new FormData();
         formData.append('title', videoData.title);
         formData.append('description', videoData.description);
         formData.append('category', videoData.category);
-        formData.append('file', videoFile);
+        formData.append('category_id', videoData.category);
+        formData.append('source_type', videoSource);
+        if (videoSource === 'file' && videoFile) {
+            formData.append('file', videoFile);
+        } else {
+            formData.append('video_url', videoUrl.trim());
+            formData.append(videoSource === 'youtube' ? 'youtube_url' : 'instagram_url', videoUrl.trim());
+        }
         if (videoCover) formData.append('cover', videoCover);
 
         try {
@@ -79,6 +89,8 @@ const Admin: React.FC = () => {
             if (res.ok) {
                 alert("Video muvaffaqiyatli yuklandi!");
                 setVideoData({ title: '', description: '', category: '' });
+                setVideoSource('file');
+                setVideoUrl('');
                 setVideoFile(null);
                 setVideoCover(null);
             } else {
@@ -170,11 +182,48 @@ const Admin: React.FC = () => {
                             {videoCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-gray-400 mb-3 text-sm font-bold uppercase tracking-widest">Video Manbasi</label>
+                        <div className="grid grid-cols-3 gap-3">
+                            {([
+                                { id: 'file', label: 'Fayl', icon: 'fa-file-video', brand: 'fas' },
+                                { id: 'youtube', label: 'YouTube', icon: 'fa-youtube', brand: 'fab' },
+                                { id: 'instagram', label: 'Instagram', icon: 'fa-instagram', brand: 'fab' },
+                            ] as const).map(source => (
+                                <button
+                                    key={source.id}
+                                    type="button"
+                                    onClick={() => {
+                                        setVideoSource(source.id);
+                                        if (source.id !== 'file') setVideoFile(null);
+                                    }}
+                                    className={`py-4 rounded-2xl border font-black text-[10px] uppercase tracking-widest transition-all flex flex-col items-center gap-2 ${videoSource === source.id ? 'bg-honey text-black border-honey shadow-lg shadow-honey/20' : 'bg-white/5 text-white border-white/10 hover:bg-white/10'}`}
+                                >
+                                    <i className={`${source.brand || 'fas'} ${source.icon} text-lg`}></i>
+                                    <span>{source.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    {videoSource === 'file' ? (
                         <div>
                             <label className="block text-gray-400 mb-2 text-sm font-bold uppercase tracking-widest">Video Fayli (MP4)</label>
                             <input type="file" accept="video/*" onChange={e => setVideoFile(e.target.files?.[0] || null)} className="w-full" />
                         </div>
+                    ) : (
+                        <div>
+                            <label className="block text-gray-400 mb-2 text-sm font-bold uppercase tracking-widest">
+                                {videoSource === 'youtube' ? 'YouTube Havolasi' : 'Instagram Post/Reel Havolasi'}
+                            </label>
+                            <input
+                                value={videoUrl}
+                                onChange={e => setVideoUrl(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 focus:border-honey outline-none transition-all"
+                                placeholder={videoSource === 'youtube' ? 'https://www.youtube.com/watch?v=...' : 'https://www.instagram.com/reel/...'}
+                            />
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label className="block text-gray-400 mb-2 text-sm font-bold uppercase tracking-widest">Muqova (Rasm)</label>
                             <input type="file" accept="image/*" onChange={e => setVideoCover(e.target.files?.[0] || null)} className="w-full" />

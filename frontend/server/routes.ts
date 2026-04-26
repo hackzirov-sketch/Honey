@@ -1,121 +1,27 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
-import { storage } from "./storage";
-import { insertUserSchema } from "@shared/schema";
-import { z } from "zod";
-import { GoogleGenAI } from "@google/genai";
-import rateLimit from "express-rate-limit";
-
-// Rate limiting for AI endpoints
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 30, // Limit each IP to 30 AI requests per windowMs
-  message: { message: "Siz juda ko'p so'rov yubordingiz. Iltimos birozdan so'ng qayta urinib ko'ring." },
-});
-
-// Initialize Gemini
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+import type { Server } from "http";
+import { initDb } from "./core/db";
+import { authRoutes } from "./modules/auth/route";
+import { chatRoutes } from "./modules/chat/route";
+import { commentRoutes } from "./modules/comment/route";
+import { healthRoutes } from "./modules/health/route";
+import { libraryRoutes } from "./modules/library/route";
+import { liveRoutes } from "./modules/live/route";
+import { videoRoutes } from "./modules/video/route";
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
 ): Promise<Server> {
+  initDb();
 
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const userData = insertUserSchema.parse(req.body);
-      const existingUser = await storage.getUserByEmail(userData.email);
-      if (existingUser) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
-      const user = await storage.createUser(userData);
-      // In a real app, set session here
-      res.json(user);
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            res.status(400).json({ message: error.errors });
-        } else {
-            res.status(500).json({ message: "Internal server error" });
-        }
-    }
-  });
-
-  app.post("/api/auth/login", async (req, res) => {
-    const { email, password } = req.body;
-    const user = await storage.getUserByEmail(email);
-    if (!user || user.password !== password) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    // In a real app, set session here
-    res.json(user);
-  });
-
-  app.post("/api/chat", aiLimiter, async (req, res) => {
-    if (!ai) return res.status(500).json({ message: "Gemini API key not configured" });
-    
-    const { message, systemInstruction } = req.body;
-    if (!message || typeof message !== "string" || message.length > 2000) {
-        return res.status(400).json({ message: "Yaroqsiz so'rov xabari (maksimal 2000 belgi)" });
-    }
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
-            contents: message,
-            config: {
-                systemInstruction: systemInstruction || "Siz Honey platformasining aqlli yordamchisiz.",
-            }
-        });
-        
-        res.json({ text: response.text });
-    } catch (error: any) {
-        console.error("Gemini Error:", error);
-        res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/search", aiLimiter, async (req, res) => {
-    if (!ai) return res.status(500).json({ message: "Gemini API key not configured" });
-
-    const { query } = req.body;
-    if (!query || typeof query !== "string" || query.length > 500) {
-        return res.status(400).json({ message: "Yaroqsiz so'rov xabari (maksimal 500 belgi)" });
-    }
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.0-flash",
-            contents: `Search for safe, educational content about: ${query}.`,
-            config: {
-                tools: [{ googleSearch: {} } as any]
-            }
-        });
-        
-        res.json({ 
-            text: response.text,
-            sources: (response as any).candidates?.[0]?.groundingMetadata?.groundingChunks || []
-        });
-    } catch (error: any) {
-        console.error("Search Error:", error);
-        res.status(500).json({ message: error.message });
-    }
-  });
-
-  app.post("/api/improve", aiLimiter, async (req, res) => {
-      if (!ai) return res.status(500).json({ message: "Gemini API key not configured" });
-      const { text } = req.body;
-      if (!text || typeof text !== "string" || text.length > 3000) {
-          return res.status(400).json({ message: "Yaroqsiz so'rov xabari (maksimal 3000 belgi)" });
-      }
-      try {
-          const response = await ai.models.generateContent({
-              model: "gemini-2.0-flash",
-              contents: `Quyidagi matnni tahrirlab ber: "${text}"`
-          });
-          res.json({ text: response.text });
-      } catch (error: any) {
-          res.status(500).json({ message: error.message });
-      }
-  });
+  app.use(healthRoutes());
+  app.use("/api/v1/auth", authRoutes());
+  app.use("/api/v1/library", libraryRoutes());
+  app.use("/api/v1/chat", chatRoutes());
+  app.use("/api/v1/video", videoRoutes());
+  app.use("/api/v1/live", liveRoutes());
+  app.use("/api/v1/comment", commentRoutes());
 
   return httpServer;
 }

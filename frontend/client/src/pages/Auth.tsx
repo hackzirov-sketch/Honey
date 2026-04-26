@@ -387,7 +387,7 @@ const Auth: React.FC<{ onAuth: () => void }> = ({ onAuth }) => {
 
           {/* Google bilan kirish */}
           <a
-            href={`${API_BASE_URL || 'http://localhost:8000'}${API_ENDPOINTS.AUTH.GOOGLE}`}
+            href={`${API_BASE_URL}${API_ENDPOINTS.AUTH.GOOGLE}`}
             className="w-full py-4 rounded-xl border border-white/10 bg-white/[0.03] text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 hover:bg-white/[0.07] transition-all"
           >
             <i className="fab fa-google text-sm"></i>

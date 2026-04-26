@@ -10,5 +10,5 @@ echo  ║   Swagger: http://localhost:8000/swagger/  ║
 echo  ╚════════════════════════════════════════╝
 echo.
 cd /d "%~dp0backend\honey"
-venv_win\Scripts\python.exe manage.py runserver 0.0.0.0:8000
+"%~dp0venv_win\Scripts\python.exe" manage.py runserver 0.0.0.0:8000
 pause

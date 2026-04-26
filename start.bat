@@ -1,86 +1,157 @@
 @echo off
+setlocal EnableExtensions
 chcp 65001 >nul
-color 0E
-title 🍯 Honey Ecosystem — Launcher
-
-echo.
-echo  ╔══════════════════════════════════════════════════════╗
-echo  ║         🍯  HONEY ECOSYSTEM  LAUNCHER  v2.0          ║
-echo  ║              Backend + Frontend Starter              ║
-echo  ╚══════════════════════════════════════════════════════╝
-echo.
-
-:: ── Papkani aniqlaymiz ────────────────────────────────────────
-set ROOT=%~dp0
-set BACKEND=%ROOT%backend\honey
-set FRONTEND=%ROOT%frontend
-
-:: ── [1] Python virtual environment tekshiruvi ────────────────
-echo  [1/4] Tekshirilmoqda: Python venv...
-if not exist "%BACKEND%\venv_win\Scripts\python.exe" (
-    echo.
-    echo  ╔══════════════════════════════════════════╗
-    echo  ║  XATO: venv_win topilmadi!               ║
-    echo  ║  Qiling:                                 ║
-    echo  ║    cd backend\honey                      ║
-    echo  ║    python -m venv venv_win               ║
-    echo  ║    venv_win\Scripts\pip install -r requirements.txt ║
-    echo  ╚══════════════════════════════════════════╝
-    echo.
-    pause
-    exit /b 1
-)
-echo        [OK] venv_win topildi
-
-:: ── [2] Node modules tekshiruvi ───────────────────────────────
-echo  [2/4] Tekshirilmoqda: Node modules...
-if not exist "%FRONTEND%\node_modules" (
-    echo        [!] node_modules topilmadi. O'rnatilmoqda...
-    cd /d "%FRONTEND%"
-    call npm install
-    cd /d "%ROOT%"
-    echo        [OK] node_modules o'rnatildi
-) else (
-    echo        [OK] Node modules tayyor
-)
-
-:: ── [3] Django migratsiyalar ──────────────────────────────────
-echo  [3/4] Django migratsiyalar tekshirilmoqda...
-cd /d "%BACKEND%"
-"%BACKEND%\venv_win\Scripts\python.exe" manage.py migrate --run-syncdb >nul 2>&1
-if %errorlevel% neq 0 (
-    echo        [OGOHLANTIRISH] Migratsiyada xatolik bo'ldi, davom etilmoqda...
-) else (
-    echo        [OK] Migratsiyalar yangilandi
-)
-cd /d "%ROOT%"
-
-:: ── [4] Serverlarni ishga tushiramiz ──────────────────────────
-echo  [4/4] Serverlar ishga tushirilmoqda...
-echo.
-
-start "HONEY-BACKEND" cmd /k "%ROOT%_run_backend.bat"
-timeout /t 3 /nobreak >nul
-
-start "HONEY-FRONTEND" cmd /k "%ROOT%_run_frontend.bat"
-timeout /t 4 /nobreak >nul
-
-:: ── Brauzer ───────────────────────────────────────────────────
-echo  Brauzer ochilmoqda: http://localhost:5173
-start "" "http://localhost:5173"
-
-:: ── Xulosa ───────────────────────────────────────────────────
-echo.
 color 0A
-echo  ╔══════════════════════════════════════════════════════╗
-echo  ║   [OK] Honey Ecosystem muvaffaqiyatli ishga tushdi!  ║
-echo  ╠══════════════════════════════════════════════════════╣
-echo  ║   Frontend  --  http://localhost:5173               ║
-echo  ║   Backend   --  http://localhost:8000               ║
-echo  ║   Swagger   --  http://localhost:8000/swagger/      ║
-echo  ╠══════════════════════════════════════════════════════╣
-echo  ║   Serverlarni to'xtatish uchun ochilgan terminal    ║
-echo  ║   oynalarni yoping yoki CTRL+C bosing.              ║
-echo  ╚══════════════════════════════════════════════════════╝
+title Honey - Single TypeScript Service
+
+set "ROOT=%~dp0"
+set "FRONTEND=%ROOT%frontend"
+set "MODE=%~1"
+if "%MODE%"=="" set "MODE=dev"
+
+echo.
+echo ============================================================
+echo   Honey Launcher
+echo   Single Node + TypeScript service
+echo ============================================================
+echo.
+
+if not exist "%FRONTEND%\package.json" (
+  color 0C
+  echo [ERROR] frontend\package.json topilmadi.
+  echo Papka: %FRONTEND%
+  echo.
+  pause
+  exit /b 1
+)
+
+where node >nul 2>&1
+if errorlevel 1 (
+  color 0C
+  echo [ERROR] Node.js topilmadi. Node.js LTS ornating.
+  echo https://nodejs.org/
+  echo.
+  pause
+  exit /b 1
+)
+
+where npm >nul 2>&1
+if errorlevel 1 (
+  color 0C
+  echo [ERROR] npm topilmadi. Node.js ni qayta ornating.
+  echo.
+  pause
+  exit /b 1
+)
+
+cd /d "%FRONTEND%"
+
+echo [1/4] Node version:
+node -v
+echo.
+
+echo [2/4] Dependencies tekshirilmoqda...
+if not exist "node_modules" (
+  echo node_modules yoq. npm install ishlayapti...
+  call npm install
+  if errorlevel 1 goto :fail
+) else (
+  echo node_modules tayyor.
+)
+echo.
+
+if /I "%MODE%"=="check" goto :check
+if /I "%MODE%"=="prod" goto :prod
+if /I "%MODE%"=="production" goto :prod
+if /I "%MODE%"=="legacy" goto :legacy
+if /I "%MODE%"=="dev" goto :dev
+
+color 0E
+echo [WARN] Nomalum mode: %MODE%
+echo Ishlatish:
+echo   start.bat        - local dev single service
+echo   start.bat prod   - Renderga yaqin production build + start
+echo   start.bat check  - TypeScript check
+echo   start.bat legacy - eski Django + Vite ikki server sxemasi
 echo.
 pause
+exit /b 1
+
+:check
+echo [3/4] TypeScript check...
+call npm run check
+if errorlevel 1 goto :fail
+echo.
+echo [OK] Check muvaffaqiyatli tugadi.
+pause
+exit /b 0
+
+:prod
+set "PORT=%PORT%"
+if "%PORT%"=="" set "PORT=10000"
+call :pick_port
+set "SQLITE_PATH=%SQLITE_PATH%"
+if "%SQLITE_PATH%"=="" set "SQLITE_PATH=%FRONTEND%\data\honey.sqlite"
+
+echo [3/4] Production build...
+call npm run build
+if errorlevel 1 goto :fail
+
+echo.
+echo [4/4] Production server ishga tushmoqda...
+echo URL: http://localhost:%PORT%
+echo API: http://localhost:%PORT%/api/v1
+echo Health: http://localhost:%PORT%/health
+echo.
+start "" "http://localhost:%PORT%"
+call npm start
+goto :end
+
+:dev
+set "PORT=%PORT%"
+if "%PORT%"=="" set "PORT=5000"
+call :pick_port
+set "SQLITE_PATH=%SQLITE_PATH%"
+if "%SQLITE_PATH%"=="" set "SQLITE_PATH=%FRONTEND%\data\honey.sqlite"
+
+echo [3/4] Local data path:
+echo %SQLITE_PATH%
+echo.
+echo [4/4] Dev server ishga tushmoqda...
+echo URL: http://localhost:%PORT%
+echo API: http://localhost:%PORT%/api/v1
+echo Health: http://localhost:%PORT%/health
+echo.
+start "" "http://localhost:%PORT%"
+call npm run dev
+goto :end
+
+:legacy
+echo [3/4] Legacy mode: Django backend + Vite frontend
+echo Bu mode faqat eski backend kerak bolsa ishlatiladi.
+echo.
+start "HONEY-BACKEND-LEGACY" cmd /k "%ROOT%_run_backend.bat"
+timeout /t 3 /nobreak >nul
+start "HONEY-FRONTEND-LEGACY" cmd /k "%ROOT%_run_frontend.bat"
+timeout /t 2 /nobreak >nul
+start "" "http://localhost:5173"
+echo [OK] Legacy oynalar ochildi.
+pause
+exit /b 0
+
+:fail
+color 0C
+echo.
+echo [ERROR] Buyruq bajarilmadi. Yuqoridagi xabarni tekshiring.
+pause
+exit /b 1
+
+:end
+echo.
+echo Server toxtadi.
+pause
+exit /b 0
+
+:pick_port
+for /f %%P in ('powershell -NoProfile -Command "$p=[int]$env:PORT; while (Get-NetTCPConnection -LocalPort $p -ErrorAction SilentlyContinue) { $p++ }; Write-Output $p"') do set "PORT=%%P"
+exit /b 0

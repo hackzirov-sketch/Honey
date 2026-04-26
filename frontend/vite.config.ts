@@ -25,8 +25,13 @@ export default defineConfig({
       deny: ["**/.*"],
     },
     proxy: {
-      // Barcha /api/v1/ so'rovlar Django backend ga
+      // Barcha /api/v1/ so'rovlar single Node backend ga
       "/api/v1": {
+        target: "http://localhost:8000",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/uploads": {
         target: "http://localhost:8000",
         changeOrigin: true,
         secure: false,

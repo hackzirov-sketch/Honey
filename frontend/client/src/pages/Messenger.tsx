@@ -9,6 +9,16 @@ interface ChatMessage {
   created_at: string;
   message_type: string;
   file?: string | null;
+  link_preview?: LinkPreview | null;
+}
+
+interface LinkPreview {
+  type: 'youtube' | 'instagram' | 'link';
+  url: string;
+  title: string;
+  site_name: string;
+  embed_url?: string;
+  thumbnail?: string;
 }
 
 interface Message {
@@ -477,6 +487,75 @@ const Messenger: React.FC = () => {
     return renderChatMessages();
   };
 
+  const renderLinkPreview = (preview?: LinkPreview | null) => {
+    if (!preview) return null;
+
+    if (preview.type === 'youtube' && preview.embed_url) {
+      return (
+        <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
+          <div className="flex items-center justify-between px-3 py-2 bg-red-500/10 border-b border-white/10">
+            <div className="flex items-center gap-2 min-w-0">
+              <i className="fab fa-youtube text-red-500"></i>
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/80 truncate">{preview.site_name}</span>
+            </div>
+            <a
+              href={preview.url}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[9px] font-black uppercase tracking-widest text-red-300 hover:text-white"
+            >
+              Ochish
+            </a>
+          </div>
+          <iframe
+            title={preview.title}
+            src={`${preview.embed_url}?rel=0`}
+            className="w-full aspect-video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+
+    if (preview.type === 'instagram') {
+      return (
+        <a
+          href={preview.url}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 flex items-center gap-4 rounded-2xl border border-pink-400/20 bg-pink-500/10 p-4 hover:bg-pink-500/20 transition-all"
+        >
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-pink-500 via-purple-500 to-amber-400 flex items-center justify-center text-white shrink-0">
+            <i className="fab fa-instagram text-xl"></i>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-widest text-pink-200">{preview.site_name}</p>
+            <p className="text-sm font-black text-white truncate">{preview.title}</p>
+          </div>
+          <i className="fas fa-external-link-alt text-pink-200 text-xs"></i>
+        </a>
+      );
+    }
+
+    return (
+      <a
+        href={preview.url}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition-all"
+      >
+        <div className="w-10 h-10 rounded-xl bg-honey/10 text-honey flex items-center justify-center shrink-0">
+          <i className="fas fa-link"></i>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-black uppercase tracking-widest text-white/50">{preview.site_name}</p>
+          <p className="text-sm font-bold text-white truncate">{preview.url}</p>
+        </div>
+      </a>
+    );
+  };
+
   const renderChatMessages = () => {
     return chatMessages.map((msg, i) => {
       const isMine = msg.sender?.username === user?.name || msg.sender?.id === user?.id;
@@ -508,6 +587,7 @@ const Messenger: React.FC = () => {
             {(msg.message_type === 'text' || !msg.file) && (
               <p className="text-[13px] md:text-[15px] font-bold leading-relaxed text-white/95 whitespace-pre-wrap">{msg.content}</p>
             )}
+            {renderLinkPreview(msg.link_preview)}
             <div className="flex items-center gap-2 mt-3 opacity-40">
               <span className="text-[9px] font-black uppercase text-white tracking-tighter">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               {isMine && <i className="fas fa-check-double text-[9px] text-honey glow-honey-soft"></i>}
