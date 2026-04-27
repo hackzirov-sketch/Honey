@@ -1,15 +1,55 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE_URL, API_ENDPOINTS, getAuthToken } from '@/config/api.config';
+import { getLiveSocket } from '@/lib/liveSocket';
+import { compressImage } from '@/lib/imageCompress';
+
+interface MessageReaction {
+  emoji: string;
+  count: number;
+  users: string[];
+}
 
 interface ChatMessage {
   id: string;
+  chat_id?: string | null;
+  group_id?: string | null;
   content: string;
   sender: { id: string; username: string };
   created_at: string;
   message_type: string;
   file?: string | null;
   link_preview?: LinkPreview | null;
+  reactions?: MessageReaction[];
+}
+
+const MSG_CACHE_PREFIX = 'honey:chat:';
+const MSG_CACHE_LIMIT = 50;
+const REACTION_PALETTE = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+
+function loadCachedMessages(chatId: string): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(`${MSG_CACHE_PREFIX}${chatId}:messages`);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function saveCachedMessages(chatId: string, msgs: ChatMessage[]) {
+  try {
+    const trimmed = msgs.slice(-MSG_CACHE_LIMIT);
+    localStorage.setItem(`${MSG_CACHE_PREFIX}${chatId}:messages`, JSON.stringify(trimmed));
+  } catch { /* quota */ }
+}
+
+function getLastReadAt(chatId: string): number {
+  const v = localStorage.getItem(`${MSG_CACHE_PREFIX}${chatId}:lastReadAt`);
+  return v ? Number(v) || 0 : 0;
+}
+
+function setLastReadAt(chatId: string, ts: number) {
+  try { localStorage.setItem(`${MSG_CACHE_PREFIX}${chatId}:lastReadAt`, String(ts)); } catch { /* */ }
 }
 
 interface LinkPreview {
@@ -62,8 +102,15 @@ const Messenger: React.FC = () => {
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [forwardMessage, setForwardMessage] = useState<ChatMessage | null>(null);
   const [showForwardModal, setShowForwardModal] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<Record<string, string>>({}); // {userId: username}
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [reactionPickerFor, setReactionPickerFor] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingEmitRef = useRef<{ at: number; chatId: string | null }>({ at: 0, chatId: null });
+  const typingTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const navigate = useNavigate();
 
   const authHeaders = () => ({
@@ -136,10 +183,11 @@ const Messenger: React.FC = () => {
         const fresh: ChatMessage[] = data.results || data;
         setChatMessages((prev) => {
           if (prev.length === fresh.length) {
-            const sigPrev = prev.map(m => `${m.id}:${(m as any).deleted_at || ''}`).join('|');
-            const sigNew = fresh.map(m => `${m.id}:${(m as any).deleted_at || ''}`).join('|');
+            const sigPrev = prev.map(m => `${m.id}:${(m as any).deleted_at || ''}:${(m.reactions || []).length}`).join('|');
+            const sigNew = fresh.map(m => `${m.id}:${(m as any).deleted_at || ''}:${(m.reactions || []).length}`).join('|');
             if (sigPrev === sigNew) return prev;
           }
+          saveCachedMessages(chatId, fresh);
           return fresh;
         });
       }
@@ -178,6 +226,7 @@ const Messenger: React.FC = () => {
   }, [activeChat, chats]);
 
   // Aktiv chat xabarlarini polling orqali fon rejimida yangilab turish (yuklanish belgisisiz)
+  // Socket ulansa, polling kamroq tez-tez ishlaydi (15s) — fallback sifatida.
   useEffect(() => {
     if (!activeChat || activeChat === 'ai') return;
     let chatIdToPoll = activeChat;
@@ -188,9 +237,180 @@ const Messenger: React.FC = () => {
     }
     const interval = setInterval(() => {
       fetchChatMessages(chatIdToPoll, false);
-    }, 2500);
+    }, 15000);
     return () => clearInterval(interval);
   }, [activeChat, chats]);
+
+  // ----- Resolve actual chatId/group for the active chat -----
+  const activeChatResolved = useMemo(() => {
+    if (!activeChat || activeChat === 'ai') return null;
+    if (activeChat === 'saved') {
+      const myChat = chats.find(c => !c.is_group && c.other_user?.id === user?.id);
+      if (!myChat) return null;
+      return { id: String(myChat.id), is_group: false };
+    }
+    const target = chats.find(c => String(c.id) === activeChat)
+      || (searchResults.groups.find(g => String(g.id) === activeChat) ? { id: activeChat, is_group: true } : null);
+    if (!target) return null;
+    return { id: String(target.id), is_group: !!target.is_group };
+  }, [activeChat, chats, searchResults, user]);
+
+  // ----- Socket connection: join room for active chat and listen -----
+  useEffect(() => {
+    if (!activeChatResolved) return;
+    let cancelled = false;
+    let socketRef: any = null;
+    const room = activeChatResolved.is_group ? `group:${activeChatResolved.id}` : `chat:${activeChatResolved.id}`;
+    const targetChatId = activeChatResolved.id;
+
+    const onMessageCreated = (msg: ChatMessage) => {
+      const belongs = msg.chat_id === targetChatId || msg.group_id === targetChatId;
+      if (!belongs) return;
+      setChatMessages(prev => {
+        if (prev.some(m => m.id === msg.id)) return prev;
+        const next = [...prev, msg];
+        saveCachedMessages(targetChatId, next);
+        return next;
+      });
+    };
+    const onMessageDeleted = (payload: { id: string; chat_id?: string; group_id?: string }) => {
+      const belongs = payload.chat_id === targetChatId || payload.group_id === targetChatId;
+      if (!belongs) return;
+      setChatMessages(prev => {
+        const next = prev.filter(m => String(m.id) !== String(payload.id));
+        saveCachedMessages(targetChatId, next);
+        return next;
+      });
+    };
+    const onReactionsUpdated = (msg: ChatMessage) => {
+      const belongs = msg.chat_id === targetChatId || msg.group_id === targetChatId;
+      if (!belongs) return;
+      setChatMessages(prev => {
+        const next = prev.map(m => (String(m.id) === String(msg.id) ? { ...m, reactions: msg.reactions } : m));
+        saveCachedMessages(targetChatId, next);
+        return next;
+      });
+    };
+    const onTyping = (payload: { userId: string; chatId?: string; groupId?: string; isTyping: boolean }) => {
+      const belongs = payload.chatId === targetChatId || payload.groupId === targetChatId;
+      if (!belongs) return;
+      if (payload.userId === user?.id) return;
+      setTypingUsers(prev => {
+        const next = { ...prev };
+        if (payload.isTyping) {
+          next[payload.userId] = payload.userId;
+          // auto-clear after 4s
+          if (typingTimersRef.current[payload.userId]) clearTimeout(typingTimersRef.current[payload.userId]);
+          typingTimersRef.current[payload.userId] = setTimeout(() => {
+            setTypingUsers(p => { const c = { ...p }; delete c[payload.userId]; return c; });
+            delete typingTimersRef.current[payload.userId];
+          }, 4000);
+        } else {
+          delete next[payload.userId];
+        }
+        return next;
+      });
+    };
+
+    (async () => {
+      try {
+        const sock = await getLiveSocket();
+        if (cancelled) return;
+        socketRef = sock;
+        sock.emit('join_room', room);
+        sock.on('message_created', onMessageCreated);
+        sock.on('message_deleted', onMessageDeleted);
+        sock.on('message_reactions_updated', onReactionsUpdated);
+        sock.on('chat_typing', onTyping);
+      } catch (err) {
+        console.warn('[messenger] socket connect failed', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      try {
+        if (socketRef) {
+          socketRef.emit('leave_room', room);
+          socketRef.off('message_created', onMessageCreated);
+          socketRef.off('message_deleted', onMessageDeleted);
+          socketRef.off('message_reactions_updated', onReactionsUpdated);
+          socketRef.off('chat_typing', onTyping);
+        }
+      } catch { /* */ }
+      setTypingUsers({});
+      Object.values(typingTimersRef.current).forEach(clearTimeout);
+      typingTimersRef.current = {};
+    };
+  }, [activeChatResolved?.id, activeChatResolved?.is_group, user?.id]);
+
+  // ----- Mark chat as read when opening / new messages arrive -----
+  useEffect(() => {
+    if (!activeChatResolved) return;
+    const last = chatMessages[chatMessages.length - 1];
+    if (!last) return;
+    setLastReadAt(activeChatResolved.id, new Date(last.created_at).getTime());
+    setUnreadCounts(prev => ({ ...prev, [activeChatResolved.id]: 0 }));
+  }, [activeChatResolved?.id, chatMessages]);
+
+  // ----- Compute unread counts for chat list (uses last_message timestamp vs lastReadAt) -----
+  useEffect(() => {
+    const counts: Record<string, number> = {};
+    for (const chat of chats) {
+      const cid = String(chat.id);
+      if (activeChatResolved?.id === cid) { counts[cid] = 0; continue; }
+      const last = chat.last_message;
+      if (!last) { counts[cid] = 0; continue; }
+      const lastTs = new Date(last.created_at).getTime();
+      const readTs = getLastReadAt(cid);
+      counts[cid] = lastTs > readTs ? 1 : 0;
+    }
+    setUnreadCounts(counts);
+  }, [chats, activeChatResolved?.id]);
+
+  // ----- Scroll-to-bottom button visibility -----
+  const handleScroll = useCallback(() => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollDown(distanceFromBottom > 300);
+  }, []);
+
+  // ----- Typing emitter (throttled) -----
+  const emitTyping = useCallback((isTyping: boolean) => {
+    if (!activeChatResolved) return;
+    const now = Date.now();
+    if (isTyping && now - typingEmitRef.current.at < 1500 && typingEmitRef.current.chatId === activeChatResolved.id) return;
+    typingEmitRef.current = { at: now, chatId: activeChatResolved.id };
+    (async () => {
+      try {
+        const sock = await getLiveSocket();
+        sock.emit('chat_typing', activeChatResolved.is_group
+          ? { groupId: activeChatResolved.id, isTyping }
+          : { chatId: activeChatResolved.id, isTyping });
+      } catch { /* */ }
+    })();
+  }, [activeChatResolved]);
+
+  // ----- Toggle reaction -----
+  const toggleReaction = useCallback(async (msg: ChatMessage, emoji: string) => {
+    const mine = msg.reactions?.find(r => r.emoji === emoji && r.users.includes(user?.id));
+    setReactionPickerFor(null);
+    try {
+      if (mine) {
+        await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHAT.REACTION_REMOVE(String(msg.id), emoji)}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+        });
+      } else {
+        await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHAT.REACTION_ADD(String(msg.id))}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${getAuthToken()}` },
+          body: JSON.stringify({ emoji }),
+        });
+      }
+    } catch { /* */ }
+  }, [user?.id]);
 
   useEffect(() => {
     const saved = localStorage.getItem('honey_ai_chat_history');

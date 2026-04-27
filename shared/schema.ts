@@ -208,6 +208,16 @@ export const liveMessages = sqliteTable("live_messages", {
   createdAt: text("created_at").notNull(),
 });
 
+export const messageReactions = sqliteTable("message_reactions", {
+  id: text("id").primaryKey(),
+  messageId: text("message_id").notNull().references(() => messages.id),
+  userId: text("user_id").notNull().references(() => users.id),
+  emoji: text("emoji").notNull(),
+  createdAt: text("created_at").notNull(),
+}, (table) => ({
+  uniqueReaction: uniqueIndex("message_reactions_unique_idx").on(table.messageId, table.userId, table.emoji),
+}));
+
 export const usersRelations = relations(users, ({ many }) => ({
   userBooks: many(userBooks),
   messages: many(messages),

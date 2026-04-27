@@ -79,7 +79,8 @@ function findFreePort(startPort: number): Promise<number> {
 
 (async () => {
   await registerRoutes(httpServer, app);
-  setupSocket(httpServer);
+  const io = setupSocket(httpServer);
+  app.set("io", io);
 
   app.use(errorHandler);
 

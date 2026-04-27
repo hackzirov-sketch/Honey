@@ -1,0 +1,566 @@
+You are a senior full-stack engineer, Replit expert, real-time chat architect, UI/UX designer, and strict QA debugger.
+
+PROJECT: Honey Web App
+SECTION: Hub / Messenger
+
+MAIN GOAL:
+Completely upgrade the Hub section into a premium Telegram Web-inspired messenger experience while preserving the Honey app’s own visual identity.
+
+IMPORTANT:
+Do NOT blindly rewrite the whole project.
+First inspect the existing Hub/Messenger code, then improve it incrementally.
+Preserve existing auth, API routes, database logic, socket events, environment variables, and working features unless clearly broken.
+
+The Hub should feel as fast, clean, and functional as Telegram Web:
+- left chat list
+- main conversation area
+- fast chat switching
+- message bubbles
+- timestamps
+- typing indicators
+- unread counters
+- pinned chats
+- search
+- attachments
+- reactions
+- smooth scrolling
+- mobile drawer/sidebar
+- cached messages
+- real-time updates
+
+But visually it must remain Honey-style:
+- dark-first premium UI
+- soft gradients
+- rounded-xl / rounded-2xl
+- smooth hover states
+- glassy panels where appropriate
+- elegant spacing
+- modern social app feel
+
+Do NOT create a copyrighted or exact pixel-perfect Telegram clone.
+Use Telegram-like layout logic and UX behavior, but keep Honey branding and styling.
+
+==================================================
+PHASE 1 — MANDATORY AUDIT
+==================================================
+
+Before changing anything, inspect the existing project.
+
+Search recursively for:
+Hub, Chat, Message, Messenger, Conversation, Room, Socket, WebSocket, Sidebar, Drawer, Typing, Reaction, Attachment, Upload, localStorage, unread, pinned, avatar, online
+
+Inspect especially:
+- client/src/pages/Messenger.tsx
+- client/src/App.tsx
+- client/src/index.css
+- client/src/types.ts
+- client/src/services/apiClient.ts
+- client/src/lib/liveSocket.ts
+- server/core/socket.ts
+- server/routes.ts
+- server/modules/chat/*
+- package.json
+
+Identify:
+1. Existing Hub route/page
+2. Existing chat component structure
+3. Existing message data model
+4. Existing socket events
+5. Existing API calls
+6. Existing auth/session dependency
+7. Existing localStorage usage
+8. Existing file upload flow
+9. Existing mobile layout bugs
+10. Existing TypeScript/build errors
+
+Do not invent a new architecture if the current one can be repaired.
+
+==================================================
+PHASE 2 — TELEGRAM-LIKE HUB LAYOUT
+==================================================
+
+Build/improve the Hub layout with Telegram Web-style structure:
+
+DESKTOP LAYOUT:
+- Full-height messenger screen
+- Left sidebar:
+  - profile/header area
+  - search bar
+  - filter tabs if useful: All / Unread / Pinned
+  - chat list
+  - pinned chats section if data exists
+  - unread counters
+  - last message preview
+  - timestamps
+  - online indicators
+- Main chat area:
+  - chat header with avatar, name, status
+  - message list
+  - floating date separators
+  - typing indicator
+  - scroll-to-bottom button
+  - sticky composer at bottom
+
+MOBILE LAYOUT:
+- Sidebar becomes drawer/sheet
+- Chat list opens first on mobile if no chat selected
+- Selecting a chat closes drawer
+- Back button returns to chat list
+- Composer never hidden behind mobile browser UI
+- Safe-area support for iOS
+- No horizontal overflow at 320px / 375px
+
+RESPONSIVE BREAKPOINTS:
+- 320px mobile
+- 375px mobile
+- iPhone 12/13/14
+- Pixel 5
+- 768px tablet
+- 1024px laptop
+- 1440px desktop
+
+REQUIRED CSS RULES:
+- html, body, #root must not overflow-x
+- flex/grid children must use min-w-0 where needed
+- message bubbles must wrap long words and URLs
+- sidebar must not force page overflow
+- composer input must shrink correctly
+
+==================================================
+PHASE 3 — CHAT LIST FEATURES
+==================================================
+
+Improve chat list behavior:
+
+CHAT LIST MUST INCLUDE:
+- avatar
+- chat name
+- online/offline status
+- last message preview
+- last message time
+- unread badge
+- pinned indicator if supported
+- muted indicator if supported
+- active chat highlight
+- skeleton loading state
+- empty state: “No chats yet”
+- error state with retry
+
+SEARCH:
+- Search chats by name and last message
+- Debounce input by 300ms
+- Keyboard accessible
+- Clear button inside search
+- No lag with many chats
+
+FILTERS:
+- All
+- Unread
+- Pinned
+
+If backend does not support pinned/unread/muted yet:
+- Implement UI safely using existing fields where possible
+- Do not fake backend data permanently
+- Use graceful fallback
+
+==================================================
+PHASE 4 — MESSAGE AREA FEATURES
+==================================================
+
+Message list must support:
+
+MESSAGE BUBBLES:
+- incoming and outgoing styles
+- timestamps
+- read/delivered check marks if data exists
+- edited label if data exists
+- reactions row
+- attachment preview
+- long text wrapping
+- URL wrapping
+- emoji support
+- grouped consecutive messages from same sender
+- date separators
+
+SCROLLING:
+- Smooth scroll to latest message
+- Preserve scroll position when older messages load
+- Scroll-to-bottom floating button
+- Auto-scroll only if user is already near bottom
+- Do not force-scroll while user reads older messages
+
+PERFORMANCE:
+- If messages > 200, implement simple virtualized/windowed rendering
+- Memoize message bubble components
+- Avoid full list rerenders when one reaction changes
+- Use stable keys
+- Do not render heavy previews repeatedly
+
+EMPTY STATES:
+- no selected chat
+- no messages in selected chat
+- failed to load messages
+- loading skeleton
+
+==================================================
+PHASE 5 — MESSAGE COMPOSER
+==================================================
+
+Composer must feel Telegram-like:
+
+FEATURES:
+- multiline input
+- Enter to send
+- Shift+Enter for new line
+- emoji button placeholder or picker if existing dependency supports it
+- attachment button
+- image upload preview
+- video/file preview if supported
+- send button
+- disabled state while sending
+- optimistic message display
+- error retry for failed message
+- typing event emit while user types
+- paste image support if feasible
+
+ACCESSIBILITY:
+- aria-labels on all buttons
+- focus visible states
+- keyboard-friendly
+- input should not lose focus after sending
+
+MOBILE:
+- large touch targets
+- composer fixed/sticky at bottom
+- safe-area padding
+- no viewport jump if possible
+
+==================================================
+PHASE 6 — LOCAL STORAGE MESSAGE CACHE
+==================================================
+
+Implement/repair cached messages.
+
+REQUIREMENTS:
+- Cache key per chat:
+  honey:chat:{chatId}:messages
+- Load at least last 10 cached messages instantly on refresh
+- Save latest 10–50 messages
+- Merge cached and server messages without duplicates
+- Deduplicate by message id
+- Sort by createdAt
+- Handle corrupted localStorage safely
+- Do not crash if localStorage is unavailable
+- Clear old cache format only if necessary
+- Avoid storing huge attachments/base64 in localStorage
+
+FUNCTIONS TO ADD IF NEEDED:
+- getCachedMessages(chatId)
+- setCachedMessages(chatId, messages)
+- mergeMessages(cachedMessages, serverMessages)
+
+==================================================
+PHASE 7 — REAL-TIME SOCKET LOGIC
+==================================================
+
+Inspect existing socket system first.
+
+Required socket behavior:
+- join chat room by chatId
+- leave previous chat room when switching
+- receive new messages in real time
+- update unread counters when message arrives outside active chat
+- typing indicator broadcasts to same chat
+- reactions broadcast to same chat
+- disconnect/reconnect handling
+- no duplicate event listeners
+- cleanup listeners on unmount
+
+Suggested events if compatible:
+- chat:join
+- chat:leave
+- chat:message:new
+- chat:message:send
+- chat:typing
+- chat:typing:stop
+- chat:reaction:add
+- chat:reaction:remove
+- chat:reaction:update
+- chat:read
+- chat:error
+
+DO NOT break existing socket contracts.
+If existing events have different names, adapt to them instead of replacing blindly.
+
+==================================================
+PHASE 8 — TYPING INDICATOR
+==================================================
+
+Typing indicator must never get stuck.
+
+REQUIREMENTS:
+- Emit typing when user starts typing
+- Throttle/debounce typing emit
+- Auto-send stop typing after inactivity
+- Hide typing indicator after 3 seconds of no event
+- Keep timeout per chat/user
+- Clear timers when switching chat
+- Clear timers on unmount
+- Do not show typing indicator for self
+
+UX:
+- Show subtle animated dots
+- Text like “typing…” or “Ali is typing…”
+- For multiple users: “2 people are typing…”
+
+==================================================
+PHASE 9 — MESSAGE REACTIONS
+==================================================
+
+Implement Telegram-like quick reactions.
+
+FEATURES:
+- Tap/click message to show reaction options
+- Quick reactions: ❤️ 😂 👍 🔥 😮
+- Add/remove reaction
+- Show reaction counts
+- Highlight own reaction
+- Optimistic update
+- Rollback if server fails
+- Real-time sync across users in same chat
+
+DATA RULES:
+- Deduplicate by messageId + userId + emoji
+- Keep counts accurate
+- Do not duplicate same user reaction
+- If backend lacks reaction persistence, add minimal safe support without breaking existing schema
+
+SOCKET:
+- Broadcast reaction update only to chat room
+- Avoid duplicate events
+
+==================================================
+PHASE 10 — ATTACHMENTS AND PREVIEWS
+==================================================
+
+Implement safe attachment preview.
+
+IMAGE PREVIEW:
+- Use browser canvas to compress preview to max 500px width
+- Keep original file for upload if backend expects original
+- Preview should be lightweight
+- Revoke object URLs after use
+- Validate file type
+- Show loading state while preview is generated
+- Show remove preview button
+
+VIDEO PREVIEW:
+- Generate thumbnail if feasible
+- Show file name and size fallback
+- Revoke object URLs
+- Do not load giant videos into memory unnecessarily
+
+FILES:
+- Show file card with name, size, icon
+- Validate unsupported types
+- Show upload error clearly
+
+SECURITY:
+- Do not execute file content
+- Do not dangerously inject HTML
+- Sanitize or safely render message text
+
+==================================================
+PHASE 11 — BACKEND CHAT SUPPORT
+==================================================
+
+Inspect:
+- server/modules/chat/*
+- server/core/socket.ts
+- server/routes.ts
+
+Fix/add only necessary pieces.
+
+BACKEND REQUIREMENTS:
+- join chat room by chatId
+- send message to correct room
+- typing events broadcast to correct room
+- reactions broadcast to correct room
+- read status update if supported
+- clean disconnect handling
+- validate inputs
+- do not expose private data
+- preserve auth
+- preserve existing database logic
+- no duplicate message creation
+- no duplicate socket listener registration
+
+If backend does not currently support reactions:
+- Add minimal route/socket handler if compatible
+- Keep schema clean
+- Do not break existing messages
+
+==================================================
+PHASE 12 — DARK MODE / HONEY STYLE
+==================================================
+
+Fix dark mode flicker.
+
+REQUIREMENTS:
+- No white flash on initial load
+- Apply theme before React hydration
+- Respect saved theme preference
+- html/body background must match theme immediately
+- Hub must look polished in dark and light mode if both exist
+
+STYLE:
+- Honey premium UI
+- Telegram-like layout logic
+- soft gradients
+- glass panels
+- subtle borders
+- hover animations
+- readable contrast
+- smooth transitions
+- no cramped spacing
+- consistent rounded corners
+
+==================================================
+PHASE 13 — ACCESSIBILITY
+==================================================
+
+Every interactive element needs:
+- aria-label
+- keyboard access
+- focus-visible styles
+- readable contrast
+- button role where needed
+
+Keyboard behavior:
+- Enter sends message
+- Shift+Enter creates new line
+- Escape closes drawer/reaction menu
+- Tab navigation works logically
+
+==================================================
+PHASE 14 — QA AND VERIFICATION
+==================================================
+
+Run:
+- npm run lint
+- npm run typecheck
+- npm run build
+- npm test
+
+If script does not exist, report it.
+If command fails, fix it and rerun.
+Build must pass.
+
+Manual/code checks:
+- 320px width no overflow
+- 375px width no overflow
+- iPhone 12/13/14 no overflow
+- Pixel 5 no overflow
+- 768px tablet layout
+- 1024px laptop layout
+- 1440px desktop layout
+- sidebar drawer opens/closes on mobile
+- selecting chat closes drawer
+- cached messages load on refresh
+- typing indicator disappears after 3 seconds
+- reaction updates locally and via socket
+- attachments preview compressed to max 500px
+- dark mode no white flicker
+- no duplicate socket listeners
+- no console errors
+- no TypeScript errors
+
+==================================================
+STRICT CONSTRAINTS
+==================================================
+
+DO NOT:
+- Do not rewrite the whole app blindly
+- Do not delete auth logic
+- Do not delete API routes
+- Do not delete database logic
+- Do not delete environment variables
+- Do not break existing socket contracts
+- Do not hardcode fake permanent data
+- Do not add large dependencies unless absolutely necessary
+- Do not ignore TypeScript errors
+- Do not leave broken imports
+- Do not create exact Telegram copyrighted clone
+- Do not make cosmetic-only changes
+
+DO:
+- Work incrementally
+- Preserve working logic
+- Add reusable helpers
+- Clean up timers/listeners/object URLs
+- Keep code readable
+- Make mobile excellent
+- Make Hub feel fast and premium
+
+==================================================
+EXPECTED FINAL OUTPUT
+==================================================
+
+Output only this structure:
+
+### 📋 HUB AUDIT REPORT
+- Files inspected:
+- Existing chat route/page:
+- Existing chat data flow:
+- Existing socket events:
+- Existing bugs found:
+- TypeScript/build errors:
+
+### 🔧 HUB FIXES IMPLEMENTED
+For each changed file:
+- File:
+- Changes:
+- Bug fixed:
+
+### 🧠 HUB LOGIC ADDED
+- Telegram-like layout:
+- Mobile drawer:
+- Chat search:
+- Message cache:
+- Typing timeout:
+- Reactions:
+- Attachment preview compression:
+- Message virtualization/windowing:
+- Socket cleanup:
+- Dark mode FOUC fix:
+
+### ✅ VERIFICATION
+- npm run lint:
+- npm run typecheck:
+- npm run build:
+- npm test:
+- Mobile 320/375:
+- Tablet 768:
+- Desktop 1440:
+- Cached messages:
+- Typing indicator:
+- Reactions sync:
+- Attachment previews:
+- Dark mode:
+
+### ✅ FINAL STATUS
+- Hub UI:
+- Hub responsiveness:
+- Hub real-time chat:
+- Hub performance:
+- Build status:
+
+### ⚠️ REMAINING MANUAL CHECKS
+- Test with multiple real users
+- Test socket reconnect on slow internet
+- Test large chat history
+- Test real attachment upload limits
+- Test mobile browser keyboard behavior
+
+BEGIN NOW.
+First audit the real Hub/Messenger code, then implement the fixes incrementally.

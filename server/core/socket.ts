@@ -43,6 +43,48 @@ export function setupSocket(httpServer: HttpServer) {
       }
     });
 
+    // ----- Typing indicator -----
+    // Client emits: { chatId?: string, groupId?: string, isTyping: boolean }
+    // Server broadcasts to room (excluding sender).
+    socket.on("chat_typing", (payload: { chatId?: string; groupId?: string; isTyping?: boolean }) => {
+      try {
+        if (!payload) return;
+        const room = payload.chatId ? `chat:${payload.chatId}` : payload.groupId ? `group:${payload.groupId}` : null;
+        if (!room) return;
+        socket.to(room).emit("chat_typing", {
+          userId: socket.data.userId,
+          chatId: payload.chatId,
+          groupId: payload.groupId,
+          isTyping: !!payload.isTyping,
+        });
+      } catch { /* swallow */ }
+    });
+
+    // ----- Reactions over socket (optional fast path; REST also broadcasts) -----
+    socket.on("message_reaction_add", (payload: { messageId: string; emoji: string }) => {
+      try {
+        if (!payload?.messageId || !payload?.emoji) return;
+        const updated = chatService.addReaction(payload.messageId, socket.data.userId, payload.emoji);
+        const msg = chatService.findMessageById(payload.messageId);
+        const room = chatService.messageRoom(msg);
+        if (room) io.to(room).emit("message_reactions_updated", updated);
+      } catch (error: any) {
+        socket.emit("error", { message: error.message || "reaction_add failed" });
+      }
+    });
+
+    socket.on("message_reaction_remove", (payload: { messageId: string; emoji: string }) => {
+      try {
+        if (!payload?.messageId || !payload?.emoji) return;
+        const updated = chatService.removeReaction(payload.messageId, socket.data.userId, payload.emoji);
+        const msg = chatService.findMessageById(payload.messageId);
+        const room = chatService.messageRoom(msg);
+        if (room) io.to(room).emit("message_reactions_updated", updated);
+      } catch (error: any) {
+        socket.emit("error", { message: error.message || "reaction_remove failed" });
+      }
+    });
+
     socket.on("live_send", (payload: { sessionId: string; text: string }) => {
       try {
         const message = liveService.send(payload.sessionId, socket.data.userId, payload.text);

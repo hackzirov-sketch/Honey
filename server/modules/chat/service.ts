@@ -30,6 +30,23 @@ function serializeGroup(row: any) {
   };
 }
 
+function findMessage(messageId: string) {
+  return sqlite.prepare("SELECT * FROM messages WHERE id = ?").get(messageId) as any;
+}
+
+function userCanAccessMessage(msg: any, userId: string): boolean {
+  if (!msg) return false;
+  if (msg.chat_id) {
+    const chat = sqlite.prepare("SELECT * FROM chats WHERE id = ?").get(msg.chat_id) as any;
+    return !!chat && (chat.user_a_id === userId || chat.user_b_id === userId);
+  }
+  if (msg.group_id) {
+    const member = sqlite.prepare("SELECT id FROM group_members WHERE group_id = ? AND user_id = ?").get(msg.group_id, userId) as any;
+    return !!member || true; // groups/channels are public; allow react
+  }
+  return false;
+}
+
 export const chatService = {
   chats(userId: string) {
     return (sqlite.prepare("SELECT * FROM chats WHERE user_a_id = ? OR user_b_id = ? ORDER BY updated_at DESC").all(userId, userId) as any[])
@@ -96,6 +113,45 @@ export const chatService = {
     if (!msg) throw new HttpError(404, "Message not found");
     if (msg.sender_id !== userId) throw new HttpError(403, "Forbidden");
     sqlite.prepare("UPDATE messages SET deleted_at = ? WHERE id = ?").run(nowIso(), id);
+    return msg;
+  },
+
+  // ----- Reactions -----
+  addReaction(messageId: string, userId: string, emoji: string) {
+    const msg = findMessage(messageId);
+    if (!msg) throw new HttpError(404, "Message not found");
+    if (!userCanAccessMessage(msg, userId)) throw new HttpError(403, "Forbidden");
+    if (!emoji || emoji.length > 16) throw new HttpError(400, "Invalid emoji");
+    try {
+      sqlite.prepare(
+        "INSERT INTO message_reactions (id, message_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?, ?)"
+      ).run(createId("rxn"), messageId, userId, emoji, nowIso());
+    } catch {
+      // already exists — idempotent
+    }
+    return serializeMessage(msg);
+  },
+
+  removeReaction(messageId: string, userId: string, emoji: string) {
+    const msg = findMessage(messageId);
+    if (!msg) throw new HttpError(404, "Message not found");
+    if (!userCanAccessMessage(msg, userId)) throw new HttpError(403, "Forbidden");
+    sqlite.prepare(
+      "DELETE FROM message_reactions WHERE message_id = ? AND user_id = ? AND emoji = ?"
+    ).run(messageId, userId, emoji);
+    return serializeMessage(msg);
+  },
+
+  // Returns a stable room name for socket broadcasts based on message location.
+  messageRoom(msg: any): string | null {
+    if (!msg) return null;
+    if (msg.chat_id) return `chat:${msg.chat_id}`;
+    if (msg.group_id) return `group:${msg.group_id}`;
+    return null;
+  },
+
+  findMessageById(id: string) {
+    return findMessage(id);
   },
 };
 
