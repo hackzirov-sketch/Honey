@@ -1,0 +1,419 @@
+You are a senior Replit full-stack engineer, UI/UX architect, WebRTC/Zoom API specialist, and strict QA debugger.
+
+PROJECT: Honey Web App
+
+GOAL:
+Adapt and improve the existing Honey Web App inside Replit. Do not rewrite the whole project blindly. First inspect the existing codebase, then fix, refactor, and improve step by step.
+
+MAIN SECTIONS TO IMPROVE:
+1. Hub / Messenger
+2. Stream
+3. Live / Video Call
+
+IMPORTANT DESIGN DIRECTION:
+The app must keep Honey’s premium UI identity:
+- dark-first luxury social platform feel
+- rounded-xl / rounded-2xl
+- glassy but clean cards
+- smooth hover animations
+- responsive mobile-first design
+- no horizontal overflow
+- premium transitions
+- fast and lightweight
+
+Do NOT create exact clones of Instagram, YouTube, Telegram, Zoom, or Google Meet. Use them only as UX inspiration.
+
+==================================================
+REPLIT-SPECIFIC RULES
+==================================================
+
+Because this project runs in Replit:
+
+1. Do not use localhost-only assumptions.
+2. Use Replit-compatible environment variables.
+3. Do not require paid or unavailable local services.
+4. Avoid huge dependencies unless absolutely necessary.
+5. Keep build and dev scripts Replit-friendly.
+6. If a port is needed, use process.env.PORT when available.
+7. Make sure Vite/Express works correctly on Replit.
+8. Do not break existing routes, auth, API contracts, or socket logic.
+9. Run and verify:
+   - npm install only if dependencies are missing
+   - npm run lint if available
+   - npm run typecheck if available
+   - npm run build
+   - npm test if available
+10. If a command does not exist, report it clearly.
+
+==================================================
+PHASE 1 — CODEBASE AUDIT
+==================================================
+
+First inspect the project structure.
+
+Search for:
+Hub, Chat, Message, Messenger, Stream, Live, Call, Meeting, Video, Room, WebRTC, Socket, Sidebar, Layout, MediaRecorder, RTCPeerConnection, getUserMedia, localStorage, reaction, typing.
+
+Inspect especially:
+- package.json
+- client/src/App.tsx
+- client/src/index.css
+- client/src/main.tsx
+- client/src/pages/Messenger.tsx
+- client/src/pages/Media.tsx
+- client/src/lib/liveSocket.ts
+- client/src/services/apiClient.ts
+- server/index.ts
+- server/routes.ts
+- server/core/socket.ts
+- server/modules/chat/*
+- server/modules/live/*
+- server/modules/video/*
+
+Identify:
+1. Tech stack
+2. Existing frontend routes
+3. Existing chat logic
+4. Existing stream logic
+5. Existing live/video call logic
+6. Existing socket events
+7. Existing API usage
+8. TypeScript/build/runtime errors
+9. Responsive issues
+10. Broken imports or dead code
+
+Do not invent a new architecture if the existing one can be fixed safely.
+
+==================================================
+PHASE 2 — STREAM SECTION
+==================================================
+
+Improve the Stream section so users can view/search content from YouTube and Instagram style sources.
+
+STREAM UI REQUIREMENTS:
+- Add a premium source selector with animated hover buttons:
+  - YouTube button
+  - Instagram button
+- Buttons must have:
+  - smooth hover animation
+  - active selected state
+  - icons if available
+  - mobile-friendly size
+  - aria-labels
+- When YouTube is selected:
+  - show YouTube-style search input
+  - use YouTube Data API v3 integration structure
+  - allow video/stream search
+  - show cards with thumbnail, title, creator/channel, live badge if available, viewer count if available
+- When Instagram is selected:
+  - prepare Instagram API integration structure
+  - show Instagram-style video/reel/live cards where API data is available
+  - do not fake real Instagram data if API is not configured
+  - show clear empty/configuration state if credentials are missing
+
+API REQUIREMENTS:
+Use environment variables:
+- YOUTUBE_API_KEY
+- INSTAGRAM_ACCESS_TOKEN
+- INSTAGRAM_APP_ID
+- INSTAGRAM_APP_SECRET
+
+Do not hardcode API keys.
+
+STREAM LAYOUT:
+- 1 column on mobile
+- 2 columns on tablet
+- 3–4 columns desktop
+- no overflow-x
+- responsive video player
+- live chat beside player on desktop
+- live chat below or drawer on mobile
+- loading skeletons
+- empty states
+- error states
+
+PERFORMANCE:
+- debounce search by 300ms
+- lazy load thumbnails
+- memoize stream cards
+- avoid heavy re-renders
+- batch live chat messages
+
+==================================================
+PHASE 3 — LIVE / VIDEO CALL SECTION
+==================================================
+
+Improve the Live section using Zoom API where possible.
+
+LIVE GOAL:
+The Live section should feel like a luxury Google Meet-inspired meeting room, with Zoom API integration support.
+
+DESIGN:
+- Google Meet-inspired premium meeting layout
+- clean video grid
+- dark elegant background
+- bottom floating control bar
+- rounded participant tiles
+- reconnecting banner
+- camera-off state
+- muted mic state
+- participant name labels
+- mobile safe-area support
+
+ZOOM API REQUIREMENTS:
+Use Zoom API integration structure with environment variables:
+- ZOOM_ACCOUNT_ID
+- ZOOM_CLIENT_ID
+- ZOOM_CLIENT_SECRET
+- ZOOM_SDK_KEY if needed
+- ZOOM_SDK_SECRET if needed
+
+Do not expose secrets to frontend.
+Backend must handle sensitive Zoom API calls.
+
+LIVE FEATURES:
+- create/join meeting flow if backend supports it
+- meeting room state
+- participants panel
+- chat panel
+- mic toggle
+- camera toggle
+- leave call
+- screen share placeholder only if existing infrastructure supports it
+- all buttons must have aria-label
+
+WEBRTC / STABILITY:
+If existing WebRTC is used, fix:
+- video freezing after 2 minutes
+- duplicate streams after camera toggle
+- bad cleanup on leave/unmount
+- ICE restart every ~90 seconds when active
+- connection monitoring with iceconnectionstatechange and connectionstatechange
+- no concurrent renegotiation spam
+- use replaceTrack instead of repeated addTrack
+- stop old tracks
+- dedupe remote streams by participant/socket/track id
+
+==================================================
+PHASE 4 — HUB / MESSENGER SECTION
+==================================================
+
+Hub must feel like Telegram Web in functionality and layout logic, but visually it must remain Honey-style.
+
+HUB UI:
+- desktop left sidebar with chats
+- mobile drawer sidebar
+- chat search
+- pinned chats if data supports it
+- unread indicators
+- avatars
+- online/offline status if available
+- main message area
+- message bubbles
+- timestamps
+- delivery/read state if available
+- typing indicator
+- reactions UI
+- attachment preview
+- smooth scrolling
+- empty state
+- loading skeleton
+- error state
+
+TELEGRAM-LIKE LOGIC:
+- fast chat switching
+- cached messages
+- responsive sidebar/drawer
+- sticky composer
+- scroll-to-bottom button
+- long messages and URLs must wrap
+- keyboard-friendly controls
+
+CHAT FUNCTIONAL REQUIREMENTS:
+1. localStorage cache:
+   - key: honey:chat:{chatId}:messages
+   - load at least 10 cached messages on refresh
+   - save latest 10–50 messages
+   - merge server messages without duplicates
+   - handle corrupted localStorage safely
+
+2. Typing indicator:
+   - auto-hide after 3 seconds
+   - timeout per user/chat
+   - clear timers on unmount
+
+3. Reactions:
+   - optimistic UI
+   - socket sync if socket exists
+   - events:
+     chat:reaction:add
+     chat:reaction:remove
+     chat:reaction:update
+   - dedupe by messageId + userId + emoji
+
+4. File previews:
+   - images compressed with canvas to max 500px preview width
+   - keep original upload file if backend expects original
+   - generate video thumbnail if feasible
+   - revoke object URLs
+   - show loading state while preview generates
+
+5. Performance:
+   - if messages > 200, use simple virtual rendering/windowing
+   - memoize message bubble
+   - avoid full list rerenders
+   - stable scroll-to-bottom behavior
+
+==================================================
+PHASE 5 — RESPONSIVENESS / BUG FIXES
+==================================================
+
+Fix these required known issues:
+
+- Responsive design must work on iPhone 12/13/14 and Android devices
+- No overflow-x anywhere
+- Video calls must not freeze after 2 minutes
+- Live stream chat must not lag with 50+ mock messages
+- Hub chat must load at least 10 cached messages from localStorage on refresh
+- File sharing previews must compress to max 500px width
+- Recording live stream must stop properly and download without blob size error
+- Meeting room must not duplicate video streams after toggle off/on
+- Typing indicators must disappear after 3 seconds
+- Message reactions must update in real time
+- Dark mode toggle must not flicker white on page load
+
+GLOBAL CSS:
+- html, body, #root: overflow-x hidden
+- use min-w-0 in flex/grid children
+- break long words/URLs
+- safe-area insets for iOS
+- immediate dark background before hydration
+
+==================================================
+PHASE 6 — BACKEND / SOCKET
+==================================================
+
+Inspect and fix:
+- server/core/socket.ts
+- server/modules/chat/*
+- server/modules/live/*
+- server/modules/video/*
+- server/routes.ts
+
+REQUIREMENTS:
+- chat rooms by chatId
+- stream rooms by liveId/streamId
+- meeting rooms by roomId
+- broadcast only to correct room
+- typing excludes sender where appropriate
+- reactions sync to all users in same chat
+- clean disconnect handling
+- no duplicate participant entries
+- do not break auth middleware
+- do not expose private data
+- preserve existing API contracts
+
+==================================================
+PHASE 7 — RECORDING FIX
+==================================================
+
+If recording exists:
+- use MediaRecorder with timeslice chunks
+- collect chunks safely
+- create blob only after stop
+- guard against stopping twice
+- handle recorder errors
+- revoke download URL
+- show recording state
+- handle Safari unsupported MediaRecorder gracefully
+- avoid blob size error
+
+==================================================
+PHASE 8 — FINAL VERIFICATION
+==================================================
+
+Run:
+- npm run lint
+- npm run typecheck
+- npm run build
+- npm test
+
+If missing, say script does not exist.
+If failing, fix and rerun.
+Build must pass.
+
+Manual/code inspection targets:
+- 320px mobile
+- 375px mobile
+- iPhone 12/13/14
+- Pixel 5
+- 768px tablet
+- 1024px laptop
+- 1440px desktop
+- dark mode first load
+- socket cleanup
+- WebRTC cleanup
+- localStorage cache
+- stream source switcher
+- Zoom API configuration state
+- YouTube/Instagram configuration state
+
+==================================================
+FINAL OUTPUT FORMAT
+==================================================
+
+Output only:
+
+### 📋 AUDIT REPORT
+- Files inspected:
+- Tech stack:
+- Important existing flows:
+- Critical errors found:
+- Existing bugs discovered:
+
+### 🔧 FIXES IMPLEMENTED
+For each changed file:
+- File:
+- Changes:
+- Bug fixed:
+
+### 🧠 LOGIC / FUNCTIONALITY ADDED
+- YouTube/Instagram stream selector:
+- Zoom API live integration:
+- Chat cache:
+- Typing timeout:
+- Reactions sync:
+- File preview compression:
+- WebRTC ICE restart:
+- Stream chat batching:
+- Recording fix:
+- Dark mode FOUC fix:
+
+### ✅ VERIFICATION
+- npm run lint:
+- npm run typecheck:
+- npm run build:
+- npm test:
+- Responsive checks:
+- WebRTC cleanup:
+- Socket cleanup:
+
+### ✅ FINAL STATUS
+- Replit compatibility:
+- P0 Responsive:
+- P1 Video call stability:
+- P2 Hub chat:
+- P3 Live stream:
+- Build status:
+
+### ⚠️ REMAINING MANUAL CHECKS
+- Test real Zoom API credentials
+- Test YouTube API quota
+- Test Instagram API permissions
+- Test real WebRTC with 2+ users
+- Test file upload limits with real backend
+- Test recording on Safari/iOS
+- Test socket events with multiple logged-in users
+
+BEGIN NOW.
+First audit the real codebase, then implement fixes incrementally.
