@@ -1,0 +1,731 @@
+You are a senior full-stack engineer, Replit expert, real-time chat architect, product designer, UI/UX systems designer, and strict QA debugger.
+
+PROJECT: Honey Web App
+SECTION: Hub / Messenger
+
+MAIN GOAL:
+Upgrade the Hub section into a premium Telegram Web-inspired communication hub with advanced settings, hamburger menus, file management, media management, chat tools, privacy controls, and responsive mobile-first UX.
+
+IMPORTANT:
+Do NOT rewrite the entire project blindly.
+First audit the existing codebase, then improve incrementally.
+Preserve auth, routes, API contracts, database logic, socket events, environment variables, and working features.
+
+The Hub should feel like a fast modern messenger:
+- Telegram Web-like layout logic
+- Honey premium UI
+- advanced chat controls
+- smooth hamburger menu
+- rich settings panel
+- media/files manager
+- real-time messaging
+- cached messages
+- responsive mobile drawer
+- polished micro-interactions
+
+Do NOT create a pixel-perfect clone of Telegram.
+Use Telegram-like UX behavior, but keep Honey’s own design identity.
+
+==================================================
+1. MANDATORY AUDIT
+==================================================
+
+First inspect the real project.
+
+Search for:
+Hub, Messenger, Chat, Message, Conversation, Room, Socket, WebSocket, Sidebar, Drawer, Menu, Hamburger, Settings, Profile, File, Media, Attachment, Upload, Reaction, Typing, localStorage, unread, pinned, mute, archive, theme
+
+Inspect:
+- package.json
+- client/src/App.tsx
+- client/src/index.css
+- client/src/main.tsx
+- client/src/types.ts
+- client/src/pages/Messenger.tsx
+- client/src/pages/Profile.tsx
+- client/src/services/apiClient.ts
+- client/src/lib/liveSocket.ts
+- server/core/socket.ts
+- server/routes.ts
+- server/modules/chat/*
+- server/core/uploads.ts
+
+Identify:
+- existing routes
+- current Hub structure
+- current chat data flow
+- existing socket events
+- existing upload/file logic
+- existing theme logic
+- current responsive bugs
+- broken imports
+- TypeScript/build errors
+- duplicated state
+- missing cleanup logic
+
+Do not invent architecture if existing one can be fixed.
+
+==================================================
+2. TELEGRAM-LIKE HUB MAIN LAYOUT
+==================================================
+
+Create/improve a full-height Hub layout.
+
+DESKTOP:
+- left sidebar chat list
+- center message area
+- optional right info panel
+- collapsible panels
+- sticky chat header
+- sticky composer
+- smooth scrollable message list
+
+MOBILE:
+- hamburger menu visible
+- chat list opens as drawer
+- settings opens as full-screen sheet
+- profile opens as sheet
+- files/media opens as sheet
+- selecting chat closes drawer
+- back button returns to chat list
+- composer stays visible above keyboard
+- safe-area padding for iOS
+- no overflow-x at 320px
+
+MAIN LAYOUT REQUIREMENTS:
+- no horizontal scroll
+- min-w-0 for flex children
+- break long messages and URLs
+- responsive drawers
+- touch-friendly buttons
+- keyboard accessible
+
+==================================================
+3. HAMBURGER MENU
+==================================================
+
+Add a premium Telegram-like hamburger menu.
+
+MENU BUTTON:
+- top-left in sidebar/header
+- smooth hover animation
+- active pressed state
+- aria-label="Open menu"
+- closes with Escape
+- closes when clicking outside
+- supports mobile and desktop
+
+HAMBURGER DRAWER CONTENT:
+- user profile preview:
+  - avatar
+  - display name
+  - username/email
+  - online status
+- quick actions:
+  - New Chat
+  - New Group
+  - New Channel/Community if supported
+  - Saved Messages
+  - Archived Chats
+  - Contacts
+  - Calls
+  - Files & Media
+  - Settings
+  - Help / Shortcuts
+  - Logout if auth exists
+
+UI:
+- glassy Honey style
+- rounded-2xl panels
+- smooth slide animation
+- subtle backdrop blur
+- icons
+- hover states
+- keyboard navigation
+- mobile full-height drawer
+
+FUNCTIONALITY:
+- Each menu item should open the correct modal/sheet/panel.
+- If backend does not support an item, show a polished “Coming soon” or disabled state.
+- Do not create fake permanent backend data.
+
+==================================================
+4. SETTINGS PANEL
+==================================================
+
+Add a rich settings system.
+
+SETTINGS ENTRY:
+- accessible from hamburger menu
+- opens as right-side panel on desktop
+- opens full-screen sheet on mobile
+- smooth transition
+- close button
+- Escape closes panel
+
+SETTINGS SECTIONS:
+
+A) Profile Settings
+- avatar preview
+- change avatar UI if upload exists
+- display name
+- username
+- bio/about
+- status text
+- save button
+- validation states
+- loading/success/error states
+
+B) Appearance
+- dark/light/system theme
+- accent color selector
+- chat wallpaper/background selector
+- compact mode toggle
+- message bubble style:
+  - rounded
+  - minimal
+  - glass
+- font size:
+  - small
+  - normal
+  - large
+- animation intensity:
+  - full
+  - reduced
+  - off
+
+C) Privacy & Security
+- online status visibility:
+  - everyone
+  - contacts
+  - nobody
+- read receipts toggle
+- typing indicator visibility toggle
+- profile photo visibility
+- blocked users UI
+- active sessions placeholder if backend exists
+- two-step verification placeholder if backend exists
+
+D) Notifications
+- desktop notifications toggle
+- sound toggle
+- message preview toggle
+- mute all chats toggle
+- per-chat mute duration:
+  - 1 hour
+  - 8 hours
+  - 2 days
+  - forever
+
+E) Chat Settings
+- enter to send toggle
+- show timestamps toggle
+- show read receipts toggle
+- auto-download media toggle
+- auto-scroll to new messages toggle
+- save drafts toggle
+- emoji suggestions toggle
+
+F) Storage & Data
+- cache size display if feasible
+- clear cached messages
+- clear media previews
+- auto-delete old cache:
+  - never
+  - 7 days
+  - 30 days
+- download data placeholder if backend exists
+
+G) Keyboard Shortcuts
+Show shortcuts:
+- Ctrl/Cmd + K = search
+- Ctrl/Cmd + N = new chat
+- Escape = close panels
+- Enter = send
+- Shift + Enter = new line
+- Ctrl/Cmd + / = shortcuts
+
+DATA STORAGE:
+- Store UI preferences in localStorage safely.
+- Use keys like:
+  honey:hub:settings
+  honey:hub:theme
+  honey:hub:wallpaper
+  honey:hub:compact
+- Handle corrupted localStorage safely.
+- Do not store sensitive data in localStorage.
+
+==================================================
+5. CHAT LIST ADVANCED UX
+==================================================
+
+Chat list must include:
+- avatar
+- name
+- last message
+- last message time
+- unread badge
+- pinned icon
+- muted icon
+- online status
+- typing preview
+- active selected state
+- loading skeleton
+- empty state
+- error state
+
+ACTIONS:
+- right click / long press chat context menu:
+  - Pin / Unpin
+  - Mute / Unmute
+  - Archive
+  - Mark as read
+  - Delete chat if supported
+  - Clear history if supported
+  - View profile
+- swipe actions on mobile if feasible:
+  - archive
+  - mute
+  - pin
+
+SEARCH:
+- search chats by name / username / last message
+- debounce 300ms
+- clear button
+- keyboard shortcut Ctrl/Cmd + K
+- search results highlighted
+
+FILTER TABS:
+- All
+- Unread
+- Pinned
+- Archived
+- Groups
+- Channels if supported
+
+==================================================
+6. MESSAGE AREA ADVANCED UX
+==================================================
+
+Message area features:
+- sticky header with avatar/name/status
+- header actions:
+  - search in chat
+  - call button if supported
+  - video call button if supported
+  - files/media button
+  - chat info button
+  - more menu
+- date separators
+- unread separator
+- grouped messages
+- reply preview
+- forwarded label if data exists
+- edited label if data exists
+- delivery/read ticks
+- reactions
+- attachment previews
+- link preview placeholder if supported
+- scroll-to-bottom button
+- new messages floating indicator
+
+MESSAGE CONTEXT MENU:
+On right-click / long press:
+- Reply
+- Edit if own message
+- Delete if supported
+- Forward
+- Copy text
+- Pin message
+- React
+- Save to Saved Messages
+- Download attachment
+- Report placeholder if supported
+
+SEARCH IN CHAT:
+- opens search bar inside chat
+- highlights matching messages
+- next/previous match buttons
+- shows result count
+- keyboard accessible
+
+PINNED MESSAGE BAR:
+- show pinned message at top if exists
+- click scrolls to pinned message
+- unpin if own permission exists
+
+==================================================
+7. MESSAGE COMPOSER
+==================================================
+
+Composer must include:
+- multiline text input
+- Enter to send based on setting
+- Shift+Enter new line
+- emoji button
+- attachment button
+- voice placeholder if supported
+- send button
+- reply preview above composer
+- edit mode indicator
+- file preview carousel
+- upload progress
+- failed message retry
+- drafts per chat
+- paste image support if feasible
+
+DRAFTS:
+- save unsent message per chat:
+  honey:chat:{chatId}:draft
+- restore draft when returning to chat
+- clear draft after sending
+- do not lag while typing
+
+TYPING:
+- emit typing while writing
+- stop after inactivity
+- typing indicator disappears after 3 seconds
+- respect privacy setting if implemented
+
+==================================================
+8. FILES AND MEDIA MANAGEMENT
+==================================================
+
+Add a Files & Media manager for each chat.
+
+ACCESS:
+- from chat header button
+- from hamburger menu
+- from chat info panel
+
+MEDIA MANAGER TABS:
+- Media
+- Files
+- Links
+- Audio/Voice if supported
+
+MEDIA TAB:
+- image/video grid
+- lazy loading
+- preview modal
+- download button
+- date grouping
+- empty state
+
+FILES TAB:
+- file list
+- file name
+- size
+- type icon
+- upload date
+- sender
+- download button
+- search files
+- sort by:
+  - newest
+  - oldest
+  - largest
+  - file type
+
+LINKS TAB:
+- extracted links from messages
+- title/URL preview if available
+- copy link button
+- open link button
+- search links
+
+FILE PREVIEW COMPRESSION:
+- images: canvas preview max width 500px
+- videos: thumbnail if feasible
+- files: lightweight card
+- revoke object URLs
+- avoid storing base64 in localStorage
+- validate unsupported files
+- show error states
+- keep original file for upload
+
+UPLOAD UX:
+- drag and drop on desktop
+- tap attachment on mobile
+- upload progress
+- cancel upload if supported
+- retry failed upload
+- size/type validation
+- clear error messages
+
+==================================================
+9. CHAT INFO / RIGHT PANEL
+==================================================
+
+Add optional right-side info panel.
+
+OPEN FROM:
+- chat header avatar/name
+- info button
+- hamburger menu item if relevant
+
+CONTENT:
+- chat/user avatar
+- name
+- username/status
+- notifications toggle
+- shared media preview
+- files shortcut
+- links shortcut
+- pinned messages
+- members list if group
+- leave group/delete chat if supported
+
+DESKTOP:
+- right side panel
+- resizable/collapsible if feasible
+
+MOBILE:
+- full-screen sheet
+
+==================================================
+10. REAL-TIME LOGIC
+==================================================
+
+Socket behavior:
+- join chat room by chatId
+- leave previous room
+- receive new messages
+- update unread counters
+- typing events
+- stop typing events
+- reactions
+- read receipts
+- message delete/edit if supported
+- reconnect handling
+- no duplicate listeners
+- cleanup on unmount
+
+Events if compatible:
+- chat:join
+- chat:leave
+- chat:message:new
+- chat:message:send
+- chat:typing
+- chat:typing:stop
+- chat:reaction:add
+- chat:reaction:remove
+- chat:reaction:update
+- chat:read
+- chat:message:edit
+- chat:message:delete
+
+Do not replace existing event names blindly.
+Adapt to existing socket contracts.
+
+==================================================
+11. LOCAL CACHE SYSTEM
+==================================================
+
+Implement safe cache:
+- latest 10–50 messages per chat
+- draft per chat
+- UI settings
+- recently opened chats
+- search preferences
+- media preview cache metadata only
+
+Keys:
+- honey:chat:{chatId}:messages
+- honey:chat:{chatId}:draft
+- honey:hub:settings
+- honey:hub:recentChats
+- honey:hub:mediaMeta:{chatId}
+
+Rules:
+- no huge base64
+- no sensitive data
+- corrupted cache safe fallback
+- clear cache setting
+- merge cached and server messages
+- dedupe by id
+- sort by createdAt
+
+==================================================
+12. RESPONSIVE / MOBILE QUALITY
+==================================================
+
+Must pass:
+- 320px mobile
+- 375px mobile
+- iPhone 12/13/14
+- Pixel 5
+- 768px tablet
+- 1024px laptop
+- 1440px desktop
+
+Mobile requirements:
+- drawer opens smoothly
+- hamburger works
+- settings full screen
+- chat info full screen
+- file manager full screen
+- composer visible
+- no overflow-x
+- large touch targets
+- safe-area padding
+- keyboard does not break layout badly
+
+==================================================
+13. DARK MODE / APPEARANCE
+==================================================
+
+Fix first-load theme flicker:
+- pre-hydration theme script
+- immediate html/body background
+- respect saved preference
+- system theme support
+- no white flash
+
+Appearance options should apply live:
+- theme
+- accent color
+- wallpaper
+- compact mode
+- font size
+- bubble style
+- animation intensity
+
+==================================================
+14. ACCESSIBILITY
+==================================================
+
+Requirements:
+- aria-labels on icon buttons
+- Escape closes drawers/menus
+- focus trap in modal/sheet if feasible
+- focus-visible rings
+- readable contrast
+- keyboard navigation
+- no inaccessible hidden buttons
+- reduced motion support
+
+==================================================
+15. PERFORMANCE
+==================================================
+
+Implement:
+- React.memo for message bubbles/chat items
+- useMemo/useCallback where useful
+- debounce search 300ms
+- virtual/window messages >200
+- lazy load images
+- batch incoming socket messages if needed
+- avoid full rerender on reaction update
+- cleanup timers/listeners/object URLs
+- CSS containment where useful
+
+==================================================
+16. QA VERIFICATION
+==================================================
+
+Run:
+- npm run lint
+- npm run typecheck
+- npm run build
+- npm test
+
+If script missing, report it.
+If fails, fix and rerun.
+
+Check:
+- hamburger menu open/close
+- settings panel open/close
+- file manager open/close
+- mobile drawer behavior
+- chat switching
+- cached messages on refresh
+- drafts restore
+- typing indicator timeout
+- reactions sync
+- file preview compression
+- dark mode no flicker
+- no overflow
+- no console errors
+- no TypeScript errors
+
+==================================================
+FINAL OUTPUT FORMAT
+==================================================
+
+Output only:
+
+### 📋 HUB AUDIT REPORT
+- Files inspected:
+- Existing Hub structure:
+- Existing chat flow:
+- Existing socket events:
+- Existing file/upload flow:
+- Existing bugs:
+
+### 🔧 FIXES IMPLEMENTED
+For each changed file:
+- File:
+- Changes:
+- Bug fixed:
+
+### 🧠 FEATURES ADDED
+- Hamburger menu:
+- Settings panel:
+- Appearance settings:
+- Privacy settings:
+- Notification settings:
+- Chat settings:
+- Storage settings:
+- Chat list actions:
+- Message context menu:
+- Chat search:
+- Search in chat:
+- Drafts:
+- File/media manager:
+- Attachment compression:
+- Chat info panel:
+- Local cache:
+- Reactions:
+- Typing timeout:
+- Dark mode FOUC fix:
+- Mobile drawer:
+
+### ✅ VERIFICATION
+- npm run lint:
+- npm run typecheck:
+- npm run build:
+- npm test:
+- 320/375 mobile:
+- iPhone 12/13/14:
+- Tablet:
+- Desktop:
+- Hamburger:
+- Settings:
+- File manager:
+- Chat cache:
+- Drafts:
+- Reactions:
+- Typing:
+- Attachments:
+- Dark mode:
+
+### ✅ FINAL STATUS
+- Hub UI:
+- Hub UX:
+- Hub settings:
+- Hub file management:
+- Hub real-time logic:
+- Hub responsiveness:
+- Build status:
+
+### ⚠️ REMAINING MANUAL CHECKS
+- Test with multiple real users
+- Test upload limits with backend
+- Test mobile keyboard behavior
+- Test socket reconnect on slow network
+- Test large chat history
+- Test real auth/session permissions
+
+BEGIN NOW.
+Audit the real Hub code first, then implement these features incrementally.

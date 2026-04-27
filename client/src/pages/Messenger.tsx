@@ -221,8 +221,10 @@ const Messenger: React.FC = () => {
     if (lastLoadedChatRef.current === targetKey) return;
 
     lastLoadedChatRef.current = targetKey;
-    setChatMessages([]);
-    fetchChatMessages(chatIdToLoad);
+    // Cache-first: ko'rsatamiz darhol, keyin server javobi tushganda yangilanadi.
+    const cached = loadCachedMessages(chatIdToLoad);
+    setChatMessages(cached);
+    fetchChatMessages(chatIdToLoad, cached.length === 0);
   }, [activeChat, chats]);
 
   // Aktiv chat xabarlarini polling orqali fon rejimida yangilab turish (yuklanish belgisisiz)
@@ -614,9 +616,19 @@ const Messenger: React.FC = () => {
     if (!input.trim() && !selectedFile) return;
     const chat = chats.find(c => String(c.id) === chatId);
     const msgContent = input;
-    const fileToSend = selectedFile;
+    let fileToSend = selectedFile;
     setInput('');
     setSelectedFile(null);
+    emitTyping(false);
+
+    // Image kompressiya — 1280px max, JPEG 82% sifat. Trafikni kamaytiradi.
+    if (fileToSend && fileToSend.type.startsWith('image/')) {
+      try {
+        fileToSend = await compressImage(fileToSend, { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
+      } catch (err) {
+        console.warn('[messenger] image compression failed, sending original', err);
+      }
+    }
 
     const endpoint = chat?.is_group
       ? API_ENDPOINTS.CHAT.GROUP_SEND(chatId)
@@ -637,9 +649,10 @@ const Messenger: React.FC = () => {
         body: formData,
       });
       if (res.ok) {
+        // Socket dan kelishi mumkin — ammo darhol fetch ham qilamiz oxirgi holatni olish uchun.
         await fetchChatMessages(chatId, false);
       } else {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         alert(err.error || "Xabar yuborishda xatolik");
       }
     } catch { /* handle */ }
@@ -846,8 +859,9 @@ const Messenger: React.FC = () => {
   const renderChatMessages = () => {
     return chatMessages.map((msg, i) => {
       const isMine = msg.sender?.username === user?.name || msg.sender?.id === user?.id;
+      const reactions = msg.reactions || [];
       return (
-        <div key={msg.id || i} className="flex justify-start items-center gap-4 animate-slideInUp group/msg-row mb-4">
+        <div key={msg.id || i} className="flex justify-start items-start gap-4 animate-slideInUp group/msg-row mb-4" data-testid={`msg-row-${msg.id || i}`}>
           <div className={`max-w-[85%] md:max-w-[65%] p-4 md:p-5 rounded-3xl message-bubble shadow-xl relative ${isMine ? 'message-bubble-user rounded-tl-none' : 'message-bubble-other rounded-tl-none'}`}>
             {!isMine && activeChatItem?.is_group && (
               <p className="text-[10px] font-black uppercase text-honey mb-2 tracking-widest opacity-80">@{msg.sender.username}</p>
@@ -872,22 +886,67 @@ const Messenger: React.FC = () => {
               </a>
             )}
             {(msg.message_type === 'text' || !msg.file) && (
-              <p className="text-[13px] md:text-[15px] font-bold leading-relaxed text-white/95 whitespace-pre-wrap">{msg.content}</p>
+              <p className="text-[13px] md:text-[15px] font-bold leading-relaxed text-white/95 whitespace-pre-wrap break-words">{msg.content}</p>
             )}
             {renderLinkPreview(msg.link_preview)}
+
+            {/* Reactions row */}
+            {reactions.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3" data-testid={`reactions-${msg.id}`}>
+                {reactions.map(r => {
+                  const mine = !!user && r.users.includes(user.id);
+                  return (
+                    <button
+                      key={r.emoji}
+                      onClick={() => toggleReaction(msg, r.emoji)}
+                      className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all flex items-center gap-1 ${mine ? 'bg-honey/20 border-honey/40 text-white' : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'}`}
+                      data-testid={`reaction-${msg.id}-${r.emoji}`}
+                    >
+                      <span>{r.emoji}</span><span className="text-[10px]">{r.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="flex items-center gap-2 mt-3 opacity-40">
               <span className="text-[9px] font-black uppercase text-white tracking-tighter">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               {isMine && <i className="fas fa-check-double text-[9px] text-honey glow-honey-soft"></i>}
             </div>
           </div>
 
-          <div className="relative shrink-0 opacity-0 group-hover/msg-row:opacity-100 transition-opacity">
+          <div className="relative shrink-0 opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity flex flex-col gap-1 mt-1">
+            <button
+              onClick={() => setReactionPickerFor(reactionPickerFor === msg.id ? null : msg.id)}
+              aria-label="Reaksiya qo'shish"
+              className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-honey transition-all"
+              data-testid={`button-react-${msg.id}`}
+            >
+              <i className="far fa-smile text-xs"></i>
+            </button>
             <button
               onClick={() => setActiveMenu(activeMenu === msg.id ? null : msg.id)}
+              aria-label="Xabar menyusi"
               className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/40 hover:text-white transition-all"
+              data-testid={`button-menu-${msg.id}`}
             >
               <i className="fas fa-ellipsis-v text-xs"></i>
             </button>
+
+            {reactionPickerFor === msg.id && (
+              <div className="absolute left-10 top-0 px-2 py-2 glass-premium rounded-full border border-white/10 shadow-2xl flex items-center gap-1 z-[100] animate-scaleIn backdrop-blur-2xl">
+                {REACTION_PALETTE.map(e => (
+                  <button
+                    key={e}
+                    onClick={() => toggleReaction(msg, e)}
+                    className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center text-lg transition-all hover:scale-125"
+                    data-testid={`reaction-pick-${msg.id}-${e}`}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {activeMenu === msg.id && (
               <div className="absolute left-10 top-0 w-40 glass-premium rounded-2xl border border-white/10 shadow-2xl py-2 z-[100] animate-scaleIn backdrop-blur-2xl">
@@ -1116,9 +1175,21 @@ const Messenger: React.FC = () => {
                   {!chat.is_group && <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#0F172A] shadow-glow"></div>}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <div className="flex justify-between items-center mb-1">
-                    <h4 className="font-black text-white text-sm md:text-[15px] uppercase tracking-tight truncate group-hover:text-honey transition-colors">{chat.is_group ? chat.name : chat.other_user?.username}</h4>
-                    <span className="text-[10px] text-gray-400 font-bold opacity-60">12:45</span>
+                  <div className="flex justify-between items-center mb-1 gap-2">
+                    <h4 className="font-black text-white text-sm md:text-[15px] uppercase tracking-tight truncate group-hover:text-honey transition-colors min-w-0">{chat.is_group ? chat.name : chat.other_user?.username}</h4>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[10px] text-gray-400 font-bold opacity-60">
+                        {chat.last_message ? new Date(chat.last_message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                      {(unreadCounts[String(chat.id)] || 0) > 0 && (
+                        <span
+                          className="min-w-[20px] h-5 px-1.5 rounded-full bg-honey text-[#1A1100] text-[10px] font-black flex items-center justify-center shadow-md"
+                          data-testid={`badge-unread-${chat.id}`}
+                        >
+                          {unreadCounts[String(chat.id)] > 99 ? '99+' : unreadCounts[String(chat.id)]}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-[12px] text-gray-500 font-bold truncate opacity-80 leading-snug">{chat.last_message?.content || 'Hali xabar yo\'q...'}</p>
                 </div>
@@ -1200,7 +1271,7 @@ const Messenger: React.FC = () => {
             </div>
 
             {/* Xabarlar */}
-            <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8 custom-scrollbar relative">
+            <div ref={messagesScrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 md:space-y-8 custom-scrollbar relative" data-testid="messages-scroll">
               <div className="absolute inset-0 opacity-5 pointer-events-none hexagon-bg"></div>
               {activeChat === 'ai' ? renderAIMessages() : activeChat === 'saved' ? renderSavedMessages() : (
                 chatMessagesLoading ? (
@@ -1224,7 +1295,33 @@ const Messenger: React.FC = () => {
                 </div>
               )}
               <div ref={messagesEndRef} />
+
+              {/* Scroll to bottom button */}
+              {showScrollDown && (
+                <button
+                  onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                  aria-label="Pastga tushish"
+                  className="sticky bottom-4 ml-auto mr-2 w-11 h-11 rounded-full bg-honey text-[#1A1100] shadow-2xl flex items-center justify-center hover:scale-110 transition-all z-20 border border-white/10"
+                  data-testid="button-scroll-down"
+                >
+                  <i className="fas fa-chevron-down"></i>
+                </button>
+              )}
             </div>
+
+            {/* Typing indicator */}
+            {Object.keys(typingUsers).length > 0 && (
+              <div className="px-6 md:px-10 pb-1 -mt-2 flex items-center gap-2 text-honey/80 text-[11px] font-bold animate-fadeIn" data-testid="typing-indicator">
+                <span className="flex gap-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-honey animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-honey animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-honey animate-bounce" style={{ animationDelay: '300ms' }} />
+                </span>
+                <span className="uppercase tracking-widest">
+                  {Object.keys(typingUsers).length === 1 ? 'yozmoqda…' : `${Object.keys(typingUsers).length} kishi yozmoqda…`}
+                </span>
+              </div>
+            )}
 
             {/* Input Area */}
             <div className="p-4 md:px-8 md:py-6 chat-header-glass">
@@ -1250,11 +1347,17 @@ const Messenger: React.FC = () => {
                   )}
                   <textarea
                     value={input}
-                    onChange={(e) => setInput(e.target.value)}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      if (activeChat !== 'ai') emitTyping(true);
+                    }}
+                    onBlur={() => { if (activeChat !== 'ai') emitTyping(false); }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                     placeholder="Xabar yozing..."
+                    aria-label="Xabar matni"
                     rows={1}
-                    className="w-full bg-white/[0.03] border border-white/10 rounded-[1.5rem] px-5 py-4 text-sm md:text-base outline-none focus:border-honey/50 transition-all font-bold text-white resize-none max-h-48 search-input-glass shadow-inner"
+                    className="w-full bg-white/[0.03] border border-white/10 rounded-[1.5rem] px-5 py-4 text-sm md:text-base outline-none focus:border-honey/50 transition-all font-bold text-white resize-none max-h-48 search-input-glass shadow-inner break-words"
+                    data-testid="input-message"
                   />
                   <div className="absolute right-4 bottom-3 flex items-center gap-2">
                     <button className="text-gray-500 hover:text-honey transition-colors">
