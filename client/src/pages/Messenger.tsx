@@ -68,7 +68,7 @@ const DEFAULT_SETTINGS: HubSettings = {
   soundOn: true,
 };
 
-const REACTION_SET = ['??','??','??','??','??','??'];
+const REACTION_SET = ['\u{1F44D}', '\u{2764}\u{FE0F}', '\u{1F602}', '\u{1F525}', '\u{1F62E}', '\u{1F44F}'];
 
 // ───────────────────────────── HELPERS ─────────────────────────────
 const lsGet = <T,>(k: string, fallback: T): T => {
