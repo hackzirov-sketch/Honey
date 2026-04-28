@@ -1,0 +1,834 @@
+You are a world-class senior full-stack engineer, Replit expert, WebRTC architect, Zoom API specialist, real-time systems engineer, UI/UX product designer, and strict QA debugger.
+
+PROJECT: Honey Web App
+FOCUS: LIVE / VIDEO MEETING SECTION
+
+CORE MISSION:
+Rebuild the Live section from the ground up into a premium Google Meet-inspired video meeting system with Zoom API support, WebRTC stability, real-time chat, participants management, recording, screen sharing, responsive layout, and Honey-style luxury UI.
+
+IMPORTANT:
+Do NOT blindly rewrite the entire app.
+First audit the existing codebase, then rebuild/improve Live incrementally.
+Preserve auth, existing routes, API contracts, environment variables, socket contracts, and backend logic unless clearly broken.
+
+Do NOT create an exact Google Meet or Zoom clone.
+Use Google Meet/Zoom-like UX behavior, but keep Honey’s premium visual identity.
+
+==================================================
+1. MANDATORY AUDIT
+==================================================
+
+First inspect the real codebase.
+
+Search for:
+Live, Call, Video, Meeting, Room, WebRTC, Socket, RTCPeerConnection, getUserMedia, MediaRecorder, screen, participant, mic, camera, ice, candidate, offer, answer, Zoom, meeting, liveSocket
+
+Inspect especially:
+- package.json
+- client/src/App.tsx
+- client/src/pages/Media.tsx
+- client/src/pages/Live.tsx if exists
+- client/src/lib/liveSocket.ts
+- client/src/services/apiClient.ts
+- client/src/index.css
+- server/index.ts
+- server/routes.ts
+- server/core/socket.ts
+- server/modules/live/*
+- server/modules/video/*
+
+Identify:
+- existing Live route/page
+- existing video meeting flow
+- existing socket events
+- existing WebRTC implementation
+- existing media permissions logic
+- existing recording logic
+- existing screen sharing logic
+- existing chat logic
+- existing Zoom API usage if any
+- broken imports
+- TypeScript/build errors
+- responsive bugs
+- duplicate stream bugs
+- cleanup bugs
+
+Do not invent new architecture if existing one can be safely repaired.
+
+==================================================
+2. LIVE SECTION PRODUCT GOAL
+==================================================
+
+The Live section must become a full meeting system:
+
+Must support:
+- create meeting
+- join meeting
+- waiting lobby
+- camera/mic preview before joining
+- meeting room
+- participants grid
+- speaker view
+- screen sharing
+- meeting chat
+- participants panel
+- meeting info panel
+- recording system
+- reconnect handling
+- Zoom API integration support
+- WebRTC fallback/support
+- mobile-first layout
+- polished Honey UI
+
+The UX should feel like:
+- Google Meet style meeting room
+- Zoom-level meeting controls
+- Honey premium design
+
+==================================================
+3. ZOOM API INTEGRATION
+==================================================
+
+Implement Zoom API support safely.
+
+ENV VARIABLES:
+Use backend-only secrets:
+- ZOOM_ACCOUNT_ID
+- ZOOM_CLIENT_ID
+- ZOOM_CLIENT_SECRET
+- ZOOM_SDK_KEY if needed
+- ZOOM_SDK_SECRET if needed
+
+Rules:
+- Never expose client secret to frontend.
+- Backend must handle Zoom OAuth/server-to-server token generation.
+- Frontend should call Honey backend endpoints only.
+- If credentials are missing, show polished configuration state.
+- Do not crash app if Zoom env vars are absent.
+
+Backend endpoints if needed:
+- POST /api/live/zoom/token
+- POST /api/live/zoom/meeting/create
+- GET /api/live/zoom/meeting/:id
+- POST /api/live/zoom/meeting/:id/join
+- DELETE /api/live/zoom/meeting/:id/end
+
+Zoom features:
+- create instant meeting
+- join meeting
+- meeting topic
+- start time
+- duration
+- waiting room option
+- passcode option
+- host/join URLs if API provides them
+- display meeting ID and copy link
+- handle API errors cleanly
+- show loading/error/success states
+
+If Zoom SDK is not already installed:
+- Do not add huge SDK unless absolutely necessary.
+- Prefer backend API integration first.
+- Add SDK only if project architecture clearly needs it.
+
+==================================================
+4. LIVE ENTRY / DASHBOARD
+==================================================
+
+Create/improve Live landing page.
+
+Sections:
+1. Hero card:
+   - “Start a meeting”
+   - “Join a meeting”
+   - meeting code input
+   - schedule meeting if supported
+
+2. Quick actions:
+   - New meeting
+   - Join by code/link
+   - Schedule
+   - Recent meetings
+   - Saved rooms
+
+3. Recent meetings:
+   - meeting title
+   - date/time
+   - participants count
+   - join button
+   - delete/remove if supported
+
+4. Configuration status:
+   - Zoom configured / not configured
+   - WebRTC available / permission needed
+   - microphone/camera status
+
+UI:
+- Honey premium cards
+- dark-first design
+- soft gradients
+- rounded-2xl
+- clean spacing
+- responsive grid
+
+==================================================
+5. PRE-JOIN LOBBY
+==================================================
+
+Build Google Meet-like pre-join screen.
+
+Features:
+- camera preview
+- mic level indicator if feasible
+- camera toggle
+- mic toggle
+- device selector:
+  - microphone
+  - camera
+  - speaker if browser supports it
+- display name input
+- meeting code/title
+- join button
+- request permission flow
+- permission denied state
+- camera unavailable state
+- mic unavailable state
+- blur/background placeholder if no camera
+- remember last selected devices in localStorage
+
+LocalStorage keys:
+- honey:live:preferredCamera
+- honey:live:preferredMic
+- honey:live:preferredSpeaker
+- honey:live:joinPreferences
+
+Rules:
+- stop preview tracks when leaving lobby
+- do not keep camera active unnecessarily
+- handle permission errors gracefully
+
+==================================================
+6. MEETING ROOM UI
+==================================================
+
+Rebuild meeting room layout.
+
+Main areas:
+- top meeting status bar
+- video grid / speaker view
+- bottom control bar
+- participants panel
+- chat panel
+- meeting info panel
+- screen share banner
+- recording indicator
+- reconnecting banner
+
+VIDEO GRID:
+- responsive grid
+- participant tiles
+- name labels
+- mic muted icon
+- camera off avatar state
+- active speaker highlight
+- pinned participant support
+- screen share tile priority
+- no horizontal overflow
+- adaptive columns:
+  - 1 participant: large centered tile
+  - 2 participants: 2 columns desktop, stacked mobile
+  - 3–4: grid
+  - 5+: compact grid
+- support mobile safe areas
+
+VIEW MODES:
+- Grid view
+- Speaker view
+- Sidebar view if feasible
+- Pin participant
+- Fullscreen tile
+
+BOTTOM CONTROL BAR:
+- mic toggle
+- camera toggle
+- screen share
+- captions placeholder if not supported
+- raise hand
+- reactions
+- participants
+- chat
+- more menu
+- leave call
+
+All controls:
+- aria-label
+- tooltip
+- keyboard focus state
+- disabled/loading states
+- mobile touch-friendly
+
+==================================================
+7. GOOGLE MEET-LIKE UX DETAILS
+==================================================
+
+Add polished meeting UX:
+
+- floating bottom controls
+- controls auto-hide after inactivity on desktop if suitable
+- always visible controls on mobile
+- participant count badge
+- chat unread badge
+- meeting link copy button
+- “Someone joined” toast
+- “Someone left” toast
+- “You are muted” hint when speaking while muted if mic level detection feasible
+- “Camera is off” placeholder
+- “Reconnecting…” banner
+- “Poor connection” warning if detected
+- “Waiting for others to join” empty state
+- leave confirmation if recording or screen sharing active
+
+==================================================
+8. PARTICIPANTS PANEL
+==================================================
+
+Panel should include:
+- search participants
+- participant list
+- host label
+- self label
+- mic/camera status
+- screen sharing status
+- hand raised status
+- connection status if available
+- actions if allowed:
+  - mute participant placeholder
+  - remove participant placeholder
+  - make host placeholder
+  - pin participant
+- empty state
+
+Mobile:
+- full-screen sheet
+Desktop:
+- right-side panel
+
+==================================================
+9. MEETING CHAT PANEL
+==================================================
+
+Meeting chat features:
+- real-time messages
+- message bubbles
+- sender name
+- timestamp
+- unread count when closed
+- emoji/reactions if easy
+- file attachment placeholder only if existing upload supports it
+- system messages:
+  - user joined
+  - user left
+  - recording started/stopped
+  - screen sharing started/stopped
+- auto-scroll only if near bottom
+- message batching for performance
+- no lag with 50+ messages
+
+Socket events if compatible:
+- live:chat:send
+- live:chat:new
+- live:join
+- live:leave
+- live:system
+
+Do not break existing socket events. Adapt if existing names differ.
+
+==================================================
+10. SCREEN SHARING
+==================================================
+
+Implement screen sharing if browser supports getDisplayMedia.
+
+Requirements:
+- start screen share
+- stop screen share
+- replace video track with screen track
+- restore camera track after stopping
+- broadcast screen share state
+- show local screen preview
+- prioritize screen tile in layout
+- handle user cancels picker
+- cleanup screen tracks
+- prevent duplicate tracks
+- disable gracefully if unsupported
+
+Rules:
+- use replaceTrack, not repeated addTrack
+- stop old screen tracks when done
+- avoid memory leaks
+
+==================================================
+11. WEBRTC STABILITY
+==================================================
+
+If existing WebRTC is used, fix deeply.
+
+Requirements:
+- use RTCPeerConnection safely
+- maintain peer connection map by participant/socket id
+- prevent duplicate connections
+- prevent duplicate remote streams
+- dedupe tracks
+- use replaceTrack for camera/mic changes
+- do not repeatedly addTrack on toggle
+- stop old tracks when replaced
+- cleanup on leave/unmount
+
+ICE / connection:
+- listen to iceconnectionstatechange
+- listen to connectionstatechange
+- if failed/disconnected:
+  - show reconnecting UI
+  - attempt ICE restart
+- schedule safe ICE restart every 90 seconds while active
+- guard against concurrent negotiation
+- avoid renegotiation spam
+- clear timers on leave
+
+Media:
+- handle permission denied
+- handle device not found
+- handle track ended
+- handle camera unplugged
+- handle mic unplugged
+
+==================================================
+12. AUDIO / VIDEO CONTROLS
+==================================================
+
+Mic toggle:
+- enable/disable audio track
+- update UI instantly
+- broadcast status
+
+Camera toggle:
+- enable/disable video track
+- update UI instantly
+- if camera off, show avatar tile
+- do not duplicate streams
+
+Device switching:
+- switch camera
+- switch microphone
+- use replaceTrack
+- stop old track
+- save preference
+
+Speaker output:
+- use setSinkId if supported
+- graceful fallback if unsupported
+
+==================================================
+13. RECORDING SYSTEM
+==================================================
+
+If recording exists or can be supported:
+
+Requirements:
+- start recording
+- pause/resume if supported
+- stop recording
+- recording timer
+- recording indicator
+- chunked MediaRecorder with timeslice
+- collect chunks safely
+- create blob only after stop
+- prevent blob size error
+- guard against stopping twice
+- handle MediaRecorder unsupported
+- handle recorder errors
+- download recording
+- revoke object URL after use
+- show success/error state
+
+Do not crash Safari/iOS if unsupported.
+
+Local recording is acceptable if backend/cloud recording does not exist.
+Do not fake cloud recording unless backend supports it.
+
+==================================================
+14. REACTIONS / RAISE HAND
+==================================================
+
+Meeting reactions:
+- 👋 raise hand
+- 👍
+- ❤️
+- 😂
+- 🎉
+- 😮
+
+Features:
+- floating reaction animation
+- broadcast to participants via socket if supported
+- auto-hide after a few seconds
+- raise hand stays until lowered
+- participant panel shows raised hand
+
+Do not spam socket events.
+
+==================================================
+15. MEETING INFO PANEL
+==================================================
+
+Show:
+- meeting title
+- meeting ID/code
+- meeting link
+- copy link button
+- host
+- start time
+- security info
+- Zoom status if using Zoom
+- WebRTC status
+- invite instructions
+
+Mobile:
+- full-screen sheet
+Desktop:
+- right panel/modal
+
+==================================================
+16. MORE MENU
+==================================================
+
+More menu items:
+- Settings
+- Device settings
+- Visual layout
+- Fullscreen
+- Background effects placeholder
+- Report problem placeholder
+- Keyboard shortcuts
+- Leave meeting
+
+Keyboard:
+- Escape closes menu
+- focus trap where feasible
+
+==================================================
+17. LIVE SETTINGS
+==================================================
+
+Create meeting settings panel.
+
+Sections:
+
+A) Devices
+- camera selector
+- microphone selector
+- speaker selector
+- test mic
+- camera preview
+
+B) Meeting Preferences
+- join muted by default
+- join camera off by default
+- show self view
+- active speaker highlight
+- auto-hide controls
+- confirm before leaving
+
+C) Appearance
+- grid density
+- tile style
+- blur background placeholder
+- compact controls
+- accent color from Honey settings
+
+D) Keyboard Shortcuts
+- M = toggle mic
+- V = toggle camera
+- C = open chat
+- P = participants
+- S = screen share
+- R = raise hand
+- Esc = close panels
+- Ctrl/Cmd + K = command/search if supported
+
+Store safely:
+- honey:live:settings
+
+==================================================
+18. BACKEND / SOCKET REQUIREMENTS
+==================================================
+
+Inspect backend and socket files first.
+
+Needed room logic:
+- meeting room join
+- participant joined
+- participant left
+- offer/answer signaling
+- ICE candidate signaling
+- screen share state
+- mic/camera status
+- chat messages
+- reactions
+- raise hand
+- reconnect
+- clean disconnect
+
+Suggested events:
+- live:room:join
+- live:room:leave
+- live:participant:joined
+- live:participant:left
+- live:signal:offer
+- live:signal:answer
+- live:signal:ice-candidate
+- live:media:status
+- live:screen:start
+- live:screen:stop
+- live:chat:send
+- live:chat:new
+- live:reaction
+- live:hand:raise
+- live:hand:lower
+- live:error
+
+Adapt to existing event names if they already exist.
+Do not break existing socket contracts.
+
+Security:
+- validate roomId
+- validate user identity
+- do not leak private data
+- preserve auth middleware
+- no duplicate participants
+- clean disconnect handling
+
+==================================================
+19. RESPONSIVE REQUIREMENTS
+==================================================
+
+Must work on:
+- 320px mobile
+- 375px mobile
+- iPhone 12/13/14
+- Pixel 5
+- 768px tablet
+- 1024px laptop
+- 1440px desktop
+
+No overflow-x anywhere.
+
+Mobile:
+- video grid must fit
+- controls reachable
+- panels full-screen
+- safe-area support
+- touch-friendly buttons
+- no hidden leave button
+- no broken keyboard layout
+
+CSS:
+- html, body, #root overflow-x hidden
+- min-w-0 on flex/grid children
+- video object-fit cover
+- controls wrap or compress gracefully
+
+==================================================
+20. DARK MODE / HONEY UI
+==================================================
+
+Style must be:
+- Honey premium dark-first
+- Google Meet-like layout logic
+- rounded-2xl video tiles
+- subtle borders
+- glassy panels
+- soft shadows
+- clean typography
+- smooth animations
+- no white flicker on load
+
+Fix theme FOUC:
+- pre-hydration theme script if needed
+- immediate dark background on html/body
+- respect saved theme preference
+
+==================================================
+21. ACCESSIBILITY
+==================================================
+
+Every interactive element:
+- aria-label
+- focus-visible
+- tooltip if icon-only
+- keyboard reachable
+- readable contrast
+- reduced motion support
+
+Keyboard shortcuts:
+- M = mic
+- V = camera
+- C = chat
+- P = participants
+- S = screen share
+- R = raise hand
+- Esc = close menus/panels
+
+Do not trigger shortcuts while typing in input fields.
+
+==================================================
+22. PERFORMANCE
+==================================================
+
+Implement:
+- memoized participant tiles
+- stable callbacks
+- no unnecessary stream rerenders
+- cleanup object URLs
+- cleanup media tracks
+- cleanup socket listeners
+- cleanup timers
+- batch chat messages
+- cap floating reactions
+- lazy load non-critical panels
+- avoid heavy dependencies
+
+==================================================
+23. QA VERIFICATION
+==================================================
+
+Run:
+- npm run lint
+- npm run typecheck
+- npm run build
+- npm test
+
+If missing, report missing script.
+If failing, fix and rerun.
+
+Verify:
+- build passes
+- no TypeScript errors
+- no console errors
+- no duplicate streams
+- mic toggle works
+- camera toggle works
+- leave call cleanup works
+- screen share cleanup works
+- recording stops correctly
+- chat does not lag with 50+ messages
+- mobile no overflow
+- dark mode no white flicker
+- Zoom missing env handled gracefully
+- Zoom configured flow works if env exists
+
+==================================================
+STRICT CONSTRAINTS
+==================================================
+
+DO NOT:
+- Do not expose Zoom secrets to frontend
+- Do not hardcode API keys
+- Do not delete auth
+- Do not delete API routes
+- Do not break existing sockets
+- Do not add huge dependencies unless absolutely necessary
+- Do not create exact Google Meet/Zoom copyrighted clone
+- Do not ignore TypeScript errors
+- Do not leave broken imports
+- Do not fake cloud recording
+- Do not make cosmetic-only changes
+
+DO:
+- Audit first
+- Rebuild carefully
+- Preserve working logic
+- Improve real stability
+- Make mobile excellent
+- Make UI premium
+- Cleanup every listener/timer/track
+- Report remaining limitations honestly
+
+==================================================
+FINAL OUTPUT FORMAT
+==================================================
+
+Output only:
+
+### 📋 LIVE AUDIT REPORT
+- Files inspected:
+- Existing Live route/page:
+- Existing WebRTC flow:
+- Existing socket events:
+- Existing Zoom/API flow:
+- Existing recording flow:
+- Existing bugs:
+
+### 🔧 LIVE FIXES IMPLEMENTED
+For each changed file:
+- File:
+- Changes:
+- Bug fixed:
+
+### 🧠 LIVE FEATURES ADDED
+- Zoom API integration:
+- Live dashboard:
+- Pre-join lobby:
+- Meeting room UI:
+- Video grid:
+- Bottom controls:
+- Participants panel:
+- Meeting chat:
+- Screen sharing:
+- Recording:
+- Reactions:
+- Raise hand:
+- Meeting info:
+- Device settings:
+- Keyboard shortcuts:
+- WebRTC ICE restart:
+- Cleanup logic:
+- Dark mode FOUC fix:
+- Mobile layout:
+
+### ✅ VERIFICATION
+- npm run lint:
+- npm run typecheck:
+- npm run build:
+- npm test:
+- 320/375 mobile:
+- iPhone 12/13/14:
+- Tablet:
+- Desktop:
+- Zoom env missing:
+- WebRTC cleanup:
+- Screen share:
+- Recording:
+- Chat batching:
+- No duplicate streams:
+
+### ✅ FINAL STATUS
+- Live UI:
+- Live UX:
+- Zoom integration:
+- WebRTC stability:
+- Recording:
+- Responsiveness:
+- Build status:
+
+### ⚠️ REMAINING MANUAL CHECKS
+- Test with real Zoom credentials
+- Test with 2+ users on different networks
+- Test camera/mic permissions on Safari/iOS
+- Test screen sharing on Chrome/Edge/Firefox
+- Test recording on Safari/iOS
+- Test poor network reconnection
+- Test mobile browser safe-area and keyboard behavior
+
+BEGIN NOW.
+First audit the real Live code, then rebuild the Live section incrementally into a premium Google Meet-inspired Honey meeting system.
