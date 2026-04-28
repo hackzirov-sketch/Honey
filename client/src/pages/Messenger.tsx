@@ -163,6 +163,7 @@ const Messenger: React.FC = () => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const messageRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const lastMessagesSig = useRef<string>('');
   const lastChatsSig = useRef<string>('');
   const initialScrollDone = useRef<string | null>(null);
@@ -429,6 +430,14 @@ const Messenger: React.FC = () => {
   const startReply = (msg: ChatMessage) => { setReplyTo(msg); setEditingMsg(null); composerRef.current?.focus(); setActiveMenu(null); };
   const startEdit = (msg: ChatMessage) => { setEditingMsg(msg); setReplyTo(null); setInput(msg.content); composerRef.current?.focus(); setActiveMenu(null); };
   const startForward = (msg: ChatMessage) => { setForwardMessage(msg); setShowForwardModal(true); setActiveMenu(null); };
+  const jumpToMessage = (id?: string | null) => {
+    if (!id) return;
+    const target = messageRefs.current[id];
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('ring-2', 'ring-honey');
+    window.setTimeout(() => target.classList.remove('ring-2', 'ring-honey'), 1200);
+  };
 
   const handleForwardMessage = async (targetChatId: string, isGroup: boolean) => {
     if (!forwardMessage) return;
@@ -601,10 +610,10 @@ const Messenger: React.FC = () => {
         <p className="text-[10px] font-black uppercase text-honey mb-1.5 tracking-widest opacity-80">@{msg.sender.username}</p>
       )}
       {msg.reply_to && (
-        <div className="mb-2 px-3 py-2 rounded-xl bg-black/20 border-l-2 border-honey">
+        <button type="button" onClick={() => jumpToMessage(msg.reply_to?.id)} className="mb-2 px-3 py-2 rounded-xl bg-black/20 border-l-2 border-honey text-left w-full hover:bg-black/30 transition-colors">
           <p className="text-[9px] font-black uppercase text-honey tracking-widest mb-0.5">↩ {msg.reply_to.sender?.username || 'kimdir'}</p>
           <p className="text-[11px] text-white/70 truncate font-medium">{msg.reply_to.message_type === 'image' ? '🖼 Rasm' : msg.reply_to.message_type === 'file' ? '📎 Fayl' : msg.reply_to.content}</p>
-        </div>
+        </button>
       )}
       {msg.file && msg.message_type === 'image' && (
         <img src={msg.file.startsWith('http') ? msg.file : `${API_BASE_URL}${msg.file}`} alt="rasm" className="rounded-xl max-w-full max-h-64 object-cover mb-2 cursor-pointer hover:opacity-90" onClick={() => window.open(msg.file!.startsWith('http') ? msg.file! : `${API_BASE_URL}${msg.file}`, '_blank')} />
@@ -643,8 +652,11 @@ const Messenger: React.FC = () => {
             const canEdit = isMine && msg.message_type === 'text';
             const canDelete = isMine || (activeChatItem?.is_group && activeChatItem?.admin === user?.id);
             return (
-              <div key={msg.id} className={`flex items-end gap-2 group/msg-row ${isMine ? 'justify-end flex-row-reverse' : 'justify-start'}`}>
+              <div key={msg.id} ref={(el) => { messageRefs.current[msg.id] = el; }} className={`flex items-end gap-2 group/msg-row ${isMine ? 'justify-end flex-row-reverse' : 'justify-start'}`}>
                 {renderMessageBubble(msg, isMine)}
+                <button onClick={() => startReply(msg)} className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all opacity-0 group-hover/msg-row:opacity-100" title="Javob berish" aria-label="Javob berish">
+                  <i className="fas fa-reply text-[10px]"></i>
+                </button>
                 <div className="relative shrink-0 opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === msg.id ? null : msg.id); }} className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all" data-testid={`button-msg-menu-${msg.id}`}>
                     <i className="fas fa-ellipsis-v text-[10px]"></i>
