@@ -38,8 +38,8 @@ export function chatRoutes() {
   router.get("/groups/search/", authRequired, (req, res) => res.json(chatService.search(String(req.query.search || ""))));
   router.get("/groups/:id/", authRequired, (req, res) => res.json(chatService.groups(req.user!.id).find((g) => g.id === String(req.params.id))));
   router.post("/groups/:id/join/", authRequired, (req, res) => res.json(chatService.joinGroup(String(req.params.id), req.user!.id)));
-  router.post("/groups/:id/add-member/", authRequired, (req, res) => res.json(chatService.joinGroup(String(req.params.id), String(req.body.user_id))));
-  router.get("/groups/:id/messages/", authRequired, (req, res) => res.json(chatService.groupMessages(String(req.params.id))));
+  router.post("/groups/:id/add-member/", authRequired, (req, res) => res.json(chatService.addMember(String(req.params.id), req.user!.id, String(req.body.user_id))));
+  router.get("/groups/:id/messages/", authRequired, (req, res) => res.json(chatService.groupMessages(String(req.params.id), req.user!.id)));
   router.post("/groups/:id/send/", authRequired, upload.single("file"), (req, res) => {
     const data = req.is("multipart/form-data") ? { ...bodyWithFile(req), reply_to_id: req.body?.reply_to_id || null } : sendMessageSchema.parse(req.body);
     res.status(201).json(chatService.groupSend(String(req.params.id), req.user!.id, data.content, data.message_type, (data as any).file, (data as any).reply_to_id));

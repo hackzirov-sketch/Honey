@@ -42,9 +42,17 @@ function userCanAccessMessage(msg: any, userId: string): boolean {
   }
   if (msg.group_id) {
     const member = sqlite.prepare("SELECT id FROM group_members WHERE group_id = ? AND user_id = ?").get(msg.group_id, userId) as any;
-    return !!member || true; // groups/channels are public; allow react
+    return !!member;
   }
   return false;
+}
+
+function requireGroupMember(groupId: string, userId: string) {
+  const group = sqlite.prepare("SELECT * FROM groups WHERE id = ?").get(groupId) as any;
+  if (!group) throw new HttpError(404, "Group not found");
+  const member = sqlite.prepare("SELECT * FROM group_members WHERE group_id = ? AND user_id = ?").get(groupId, userId) as any;
+  if (!member) throw new HttpError(403, "Forbidden");
+  return { group, member };
 }
 
 export const chatService = {
@@ -95,7 +103,23 @@ export const chatService = {
     }
     return serializeGroup(group);
   },
-  groupMessages(groupId: string) {
+  addMember(groupId: string, actorUserId: string, targetUserId: string) {
+    const { group, member } = requireGroupMember(groupId, actorUserId);
+    if (member.role !== "admin" && group.admin_id !== actorUserId) {
+      throw new HttpError(403, "Only admin can add members");
+    }
+    const target = sqlite.prepare("SELECT id FROM users WHERE id = ?").get(targetUserId) as any;
+    if (!target) throw new HttpError(404, "User not found");
+    try {
+      sqlite.prepare("INSERT INTO group_members (id, group_id, user_id, role, created_at) VALUES (?, ?, ?, 'member', ?)")
+        .run(createId("gm"), groupId, targetUserId, nowIso());
+    } catch {
+      // already member
+    }
+    return serializeGroup(group);
+  },
+  groupMessages(groupId: string, userId: string) {
+    requireGroupMember(groupId, userId);
     return (sqlite.prepare("SELECT * FROM messages WHERE group_id = ? AND deleted_at IS NULL ORDER BY created_at").all(groupId) as any[]).map(serializeMessage);
   },
   groupSend(groupId: string, userId: string, content: string, messageType = "text", file?: string | null, replyToId?: string | null) {
