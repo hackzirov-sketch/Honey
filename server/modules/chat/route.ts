@@ -54,6 +54,13 @@ export function chatRoutes() {
     const data = editMessageSchema.parse(req.body);
     res.json(chatService.editMessage(String(req.params.id), req.user!.id, data.content));
   });
+  router.post("/messages/:id/reactions/", authRequired, (req, res) => {
+    const emoji = String(req.body?.emoji || "");
+    res.json(chatService.addReaction(String(req.params.id), req.user!.id, emoji));
+  });
+  router.delete("/messages/:id/reactions/:emoji/", authRequired, (req, res) => {
+    res.json(chatService.removeReaction(String(req.params.id), req.user!.id, decodeURIComponent(String(req.params.emoji))));
+  });
 
   return router;
 }

@@ -66,6 +66,22 @@ export function serializeMessage(row: any): any {
     file: row.file,
     reply_to: replyTo,
     edited_at: row.edited_at || null,
+    reactions: sqlite.prepare(`
+      SELECT
+        emoji,
+        COUNT(*) as count,
+        json_group_array(user_id) as users_json
+      FROM message_reactions
+      WHERE message_id = ?
+      GROUP BY emoji
+      ORDER BY count DESC, emoji ASC
+    `).all(row.id).map((r: any) => ({
+      emoji: r.emoji,
+      count: Number(r.count || 0),
+      users: (() => {
+        try { return JSON.parse(r.users_json || "[]"); } catch { return []; }
+      })(),
+    })),
     link_preview: detectLinkPreview(row.content),
   };
 }

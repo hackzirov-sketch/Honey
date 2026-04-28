@@ -29,6 +29,7 @@ interface ChatMessage {
   reply_to?: ReplyTo | null;
   edited_at?: string | null;
   link_preview?: LinkPreview | null;
+  reactions?: { emoji: string; count: number; users: string[] }[];
 }
 
 interface AIMessage {
@@ -66,6 +67,8 @@ const DEFAULT_SETTINGS: HubSettings = {
   compactMode: false,
   soundOn: true,
 };
+
+const REACTION_SET = ['??','??','??','??','??','??'];
 
 // ───────────────────────────── HELPERS ─────────────────────────────
 const lsGet = <T,>(k: string, fallback: T): T => {
@@ -427,6 +430,22 @@ const Messenger: React.FC = () => {
     setActiveMenu(null);
   };
 
+  const handleToggleReaction = async (messageId: string, emoji: string, currentlyReacted: boolean) => {
+    try {
+      const endpoint = currentlyReacted
+        ? API_ENDPOINTS.CHAT.REACTION_REMOVE(messageId, emoji)
+        : API_ENDPOINTS.CHAT.REACTION_ADD(messageId);
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: currentlyReacted ? 'DELETE' : 'POST',
+        headers: authHeaders(),
+        body: currentlyReacted ? undefined : JSON.stringify({ emoji }),
+      });
+      if (!res.ok) return;
+      const updated = await res.json();
+      setChatMessages(prev => prev.map(m => String(m.id) === String(updated.id) ? updated : m));
+    } catch { /* ignore */ }
+  };
+
   const startReply = (msg: ChatMessage) => { setReplyTo(msg); setEditingMsg(null); composerRef.current?.focus(); setActiveMenu(null); };
   const startEdit = (msg: ChatMessage) => { setEditingMsg(msg); setReplyTo(null); setInput(msg.content); composerRef.current?.focus(); setActiveMenu(null); };
   const startForward = (msg: ChatMessage) => { setForwardMessage(msg); setShowForwardModal(true); setActiveMenu(null); };
@@ -625,6 +644,38 @@ const Messenger: React.FC = () => {
         <p className={`${settings.compactMode ? 'text-[12px] md:text-[13px]' : 'text-[13px] md:text-[14px]'} font-medium leading-relaxed text-white/95 whitespace-pre-wrap break-words`}>{msg.content}</p>
       )}
       {renderLinkPreview(msg.link_preview)}
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {(msg.reactions || []).map((r) => {
+          const reacted = (r.users || []).includes(String(user?.id));
+          return (
+            <button
+              key={`${msg.id}-${r.emoji}`}
+              type="button"
+              onClick={() => handleToggleReaction(msg.id, r.emoji, reacted)}
+              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all ${reacted ? 'bg-honey/20 border-honey text-honey' : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'}`}
+            >
+              {r.emoji} {r.count}
+            </button>
+          );
+        })}
+        <div className="flex items-center gap-1">
+          {REACTION_SET.map((emoji) => {
+            const current = (msg.reactions || []).find((r) => r.emoji === emoji);
+            const reacted = !!current?.users?.includes(String(user?.id));
+            return (
+              <button
+                key={`${msg.id}-pick-${emoji}`}
+                type="button"
+                onClick={() => handleToggleReaction(msg.id, emoji, reacted)}
+                className="w-6 h-6 rounded-full bg-white/5 hover:bg-white/10 text-[12px]"
+                title={`Reaksiya ${emoji}`}
+              >
+                {emoji}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <div className="flex items-center gap-1.5 mt-2 opacity-50">
         <span className="text-[9px] font-black uppercase text-white tracking-tight">{formatTime(msg.created_at)}</span>
         {msg.edited_at && <span className="text-[8px] font-bold uppercase text-white/60 italic">tahrirlangan</span>}

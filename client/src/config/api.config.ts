@@ -74,6 +74,8 @@ export const API_ENDPOINTS = {
         GLOBAL_SEARCH: "/api/v1/chat/search/", // GET ?search=query
         MESSAGE_DELETE: (id: string) => `/api/v1/chat/messages/${id}/`, // DELETE
         MESSAGE_EDIT: (id: string) => `/api/v1/chat/messages/${id}/`,   // PATCH {content}
+        REACTION_ADD: (id: string) => `/api/v1/chat/messages/${id}/reactions/`, // POST {emoji}
+        REACTION_REMOVE: (id: string, emoji: string) => `/api/v1/chat/messages/${id}/reactions/${encodeURIComponent(emoji)}/`, // DELETE
     },
 
     // --- AI (geminiService.ts dan foydalanish uchun) ---
