@@ -271,6 +271,13 @@ const Classroom: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  // Zoom integration
+  const [zoomMeetings, setZoomMeetings] = useState<any[]>([]);
+  const [zoomLoading, setZoomLoading] = useState(false);
+  const [zoomError, setZoomError] = useState<string>('');
+  const [zoomCreating, setZoomCreating] = useState(false);
+  const [zoomTopic, setZoomTopic] = useState('');
+  const [zoomDuration, setZoomDuration] = useState(60);
   const [permissionError, setPermissionError] = useState<string | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
 
@@ -551,6 +558,74 @@ const Classroom: React.FC = () => {
       if (res.ok) setMessages(await res.json());
     } catch (e) { console.error(e); }
   };
+
+  // Zoom: fetch upcoming meetings
+  const fetchZoomMeetings = async () => {
+    setZoomLoading(true); setZoomError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.ZOOM_MEETINGS}`, {
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setZoomMeetings(Array.isArray(data) ? data : []);
+      } else if (res.status === 503) {
+        setZoomError("Zoom hali sozlanmagan. Admin ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET ni qo'shishi kerak.");
+      } else {
+        setZoomError("Zoom uchrashuvlarini yuklab bo'lmadi.");
+      }
+    } catch {
+      setZoomError("Server bilan aloqa yo'q.");
+    } finally {
+      setZoomLoading(false);
+    }
+  };
+
+  const handleCreateZoomMeeting = async () => {
+    if (!zoomTopic.trim()) return;
+    setZoomLoading(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.ZOOM_MEETINGS}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`,
+        },
+        body: JSON.stringify({ topic: zoomTopic, duration: zoomDuration }),
+      });
+      if (res.ok) {
+        setZoomTopic('');
+        setZoomCreating(false);
+        await fetchZoomMeetings();
+      } else if (res.status === 503) {
+        alert("Zoom hali sozlanmagan.");
+      } else {
+        const e = await res.json().catch(() => ({}));
+        alert(e.detail || "Zoom uchrashuvini yaratib bo'lmadi.");
+      }
+    } catch {
+      alert("Server bilan aloqa yo'q.");
+    } finally {
+      setZoomLoading(false);
+    }
+  };
+
+  const handleDeleteZoomMeeting = async (id: string | number) => {
+    if (!confirm("Ushbu Zoom uchrashuvini o'chirasizmi?")) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.ZOOM_MEETING_DELETE(String(id))}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${getAuthToken()}` },
+      });
+      if (res.ok || res.status === 204) {
+        setZoomMeetings(prev => prev.filter(m => m.id !== id));
+      }
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    if (user) fetchZoomMeetings();
+  }, []);
 
   const handleCreateSession = async () => {
     if (!newTitle.trim()) return;
@@ -866,6 +941,123 @@ const Classroom: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Zoom Meetings panel */}
+        <div className="mb-12 glass-premium rounded-[2rem] border border-blue-500/20 p-6 sm:p-8" data-testid="section-zoom">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-tight">
+                <i className="fas fa-video text-blue-500 mr-3"></i>Zoom Uchrashuvlar
+              </h2>
+              <p className="text-gray-400 text-xs font-bold mt-1">Yuqori sifatli vebinarlar uchun Zoom orqali</p>
+            </div>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <button
+                onClick={fetchZoomMeetings}
+                disabled={zoomLoading}
+                className="flex-1 sm:flex-none px-4 py-3 bg-white/5 border border-white/10 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-white/10 disabled:opacity-50"
+                data-testid="button-zoom-refresh"
+              >
+                <i className="fas fa-sync-alt mr-2"></i>Yangilash
+              </button>
+              {(user.is_superuser || user.is_staff) && (
+                <button
+                  onClick={() => setZoomCreating(v => !v)}
+                  className="flex-1 sm:flex-none px-4 py-3 bg-blue-600 text-white rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 shadow-lg shadow-blue-600/30"
+                  data-testid="button-zoom-create-toggle"
+                >
+                  <i className="fas fa-plus mr-2"></i>Yangi Zoom
+                </button>
+              )}
+            </div>
+          </div>
+
+          {zoomCreating && (user.is_superuser || user.is_staff) && (
+            <div className="mb-6 bg-white/5 border border-blue-500/20 rounded-2xl p-5 space-y-3 animate-scaleIn">
+              <input
+                placeholder="Uchrashuv mavzusi..."
+                value={zoomTopic}
+                onChange={e => setZoomTopic(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-3 text-white outline-none focus:border-blue-500"
+                data-testid="input-zoom-topic"
+              />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="number"
+                  min={15}
+                  max={240}
+                  placeholder="Davomiyligi (daq)"
+                  value={zoomDuration}
+                  onChange={e => setZoomDuration(Number(e.target.value))}
+                  className="sm:w-40 bg-white/5 border border-white/10 rounded-xl px-5 py-3 text-white outline-none focus:border-blue-500"
+                  data-testid="input-zoom-duration"
+                />
+                <button
+                  onClick={handleCreateZoomMeeting}
+                  disabled={zoomLoading || !zoomTopic.trim()}
+                  className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-black uppercase text-xs hover:bg-blue-700 disabled:opacity-50"
+                  data-testid="button-zoom-create-submit"
+                >
+                  {zoomLoading ? "Yaratilmoqda..." : "Zoom Yaratish"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {zoomLoading && zoomMeetings.length === 0 ? (
+            <div className="flex items-center justify-center py-10">
+              <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          ) : zoomError ? (
+            <div className="py-8 text-center bg-blue-500/5 rounded-2xl border border-blue-500/10">
+              <i className="fab fa-zoom text-3xl text-blue-500/40 mb-3"></i>
+              <p className="text-gray-400 text-sm font-bold px-4">{zoomError}</p>
+            </div>
+          ) : zoomMeetings.length === 0 ? (
+            <div className="py-8 text-center text-gray-500 text-sm font-bold">
+              Hozircha rejalashtirilgan Zoom uchrashuvlar yo'q.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {zoomMeetings.map(m => (
+                <div key={m.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-blue-500/40 transition-all" data-testid={`card-zoom-${m.id}`}>
+                  <div className="flex items-start justify-between mb-3 gap-3">
+                    <h3 className="text-white font-black uppercase text-sm tracking-tight line-clamp-2 flex-1">{m.topic}</h3>
+                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-[8px] font-black uppercase tracking-widest shrink-0">Zoom</span>
+                  </div>
+                  <p className="text-gray-500 text-xs font-bold mb-1">
+                    <i className="fas fa-clock mr-2"></i>
+                    {m.start_time ? new Date(m.start_time).toLocaleString('uz-UZ') : "Tezkor uchrashuv"}
+                  </p>
+                  <p className="text-gray-500 text-xs font-bold mb-4">
+                    <i className="fas fa-hourglass-half mr-2"></i>
+                    {m.duration} daqiqa
+                  </p>
+                  <div className="flex gap-2">
+                    <a
+                      href={m.join_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 text-center bg-blue-600 text-white py-3 rounded-xl font-black uppercase text-[10px] tracking-widest hover:bg-blue-700 transition-all"
+                      data-testid={`link-zoom-join-${m.id}`}
+                    >
+                      <i className="fas fa-sign-in-alt mr-2"></i>Qo'shilish
+                    </a>
+                    {(user.is_superuser || user.is_staff) && (
+                      <button
+                        onClick={() => handleDeleteZoomMeeting(m.id)}
+                        className="px-4 py-3 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl font-black hover:bg-red-500 hover:text-white transition-all"
+                        data-testid={`button-zoom-delete-${m.id}`}
+                      >
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {sessions.filter(s => s.status !== 'finished').map(s => (

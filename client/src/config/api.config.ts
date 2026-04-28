@@ -103,6 +103,21 @@ export const API_ENDPOINTS = {
         STATS: "/api/v1/admin/stats/",                            // GET
     },
 
+    // --- Integrations (OpenLibrary, YouTube, Instagram, Zoom) ---
+    INTEGRATIONS: {
+        STATUS: "/api/v1/integrations/status/",
+        OPENLIBRARY_SEARCH: "/api/v1/integrations/openlibrary/search/",
+        OPENLIBRARY_TRENDING: "/api/v1/integrations/openlibrary/trending/",
+        OPENLIBRARY_BOOK: "/api/v1/integrations/openlibrary/book/",
+        YOUTUBE_SEARCH: "/api/v1/integrations/youtube/search/",
+        YOUTUBE_TRENDING: "/api/v1/integrations/youtube/trending/",
+        YOUTUBE_VIDEO: (id: string) => `/api/v1/integrations/youtube/video/${id}/`,
+        INSTAGRAM_PROFILE: "/api/v1/integrations/instagram/profile/",
+        INSTAGRAM_FEED: "/api/v1/integrations/instagram/feed/",
+        ZOOM_MEETINGS: "/api/v1/integrations/zoom/meetings/",
+        ZOOM_MEETING_DELETE: (id: string) => `/api/v1/integrations/zoom/meetings/${id}/`,
+    },
+
     // --- Live ---
     LIVE: {
         SESSIONS: "/api/v1/live/sessions/",

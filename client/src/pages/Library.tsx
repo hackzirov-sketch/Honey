@@ -33,7 +33,11 @@ const Library: React.FC = () => {
    const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
    const [isLoading, setIsLoading] = useState(true);
    const [selectedBook, setSelectedBook] = useState<Book | null>(null);
-   const [activeTab, setActiveTab] = useState<'katalog' | 'mening-kitoblarim'>('katalog');
+   const [activeTab, setActiveTab] = useState<'katalog' | 'mening-kitoblarim' | 'openlibrary'>('katalog');
+   const [olQuery, setOlQuery] = useState('');
+   const [olResults, setOlResults] = useState<any[]>([]);
+   const [olLoading, setOlLoading] = useState(false);
+   const [olLoaded, setOlLoaded] = useState(false);
    const [searchTerm, setSearchTerm] = useState('');
    const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
    const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -135,6 +139,30 @@ const Library: React.FC = () => {
 
    const isInMyBooks = (bookId: string) => userBooks.some(ub => ub.book.id === bookId);
 
+   // OpenLibrary qidirish
+   const fetchOpenLibrary = async (q: string) => {
+      setOlLoading(true);
+      try {
+         const url = q.trim()
+            ? `${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.OPENLIBRARY_SEARCH}?q=${encodeURIComponent(q)}&limit=24`
+            : `${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.OPENLIBRARY_TRENDING}`;
+         const res = await fetch(url, { headers: authHeaders() });
+         if (res.ok) {
+            const data = await res.json();
+            setOlResults(q.trim() ? (data.results || []) : (Array.isArray(data) ? data : []));
+            setOlLoaded(true);
+         }
+      } catch { /* offline */ } finally {
+         setOlLoading(false);
+      }
+   };
+
+   useEffect(() => {
+      if (activeTab === 'openlibrary' && !olLoaded) {
+         fetchOpenLibrary('');
+      }
+   }, [activeTab]);
+
    if (!user) {
       return (
          <div className="container mx-auto px-6 py-20 flex flex-col items-center justify-center text-center space-y-12 animate-fadeIn pb-64">
@@ -192,7 +220,7 @@ const Library: React.FC = () => {
             </div>
 
             {/* Tablar */}
-            <div className="flex bg-white/10 p-1 rounded-xl sm:rounded-2xl border border-white/20 mb-12 w-full max-w-md shadow-2xl">
+            <div className="flex bg-white/10 p-1 rounded-xl sm:rounded-2xl border border-white/20 mb-12 w-full max-w-2xl shadow-2xl">
                <button
                   onClick={() => setActiveTab('katalog')}
                   className={`flex-1 py-2 sm:py-3 text-[8px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg sm:rounded-xl transition-all ${activeTab === 'katalog' ? 'bg-honey text-white shadow-lg shadow-honey/30' : 'text-honey hover:text-white hover:bg-white/5'}`}
@@ -205,10 +233,88 @@ const Library: React.FC = () => {
                >
                   Mening kitoblarim ({userBooks.length})
                </button>
+               <button
+                  onClick={() => setActiveTab('openlibrary')}
+                  className={`flex-1 py-2 sm:py-3 text-[8px] sm:text-[10px] font-black uppercase tracking-wider rounded-lg sm:rounded-xl transition-all ${activeTab === 'openlibrary' ? 'bg-honey text-white shadow-lg shadow-honey/30' : 'text-honey hover:text-white hover:bg-white/5'}`}
+                  data-testid="button-tab-openlibrary"
+               >
+                  Dunyo Kutubxonasi
+               </button>
             </div>
          </header>
 
-         {activeTab === 'katalog' ? (
+         {activeTab === 'openlibrary' ? (
+            <div data-testid="section-openlibrary">
+               <div className="flex flex-col md:flex-row gap-3 mb-10">
+                  <input
+                     type="text"
+                     value={olQuery}
+                     onChange={(e) => setOlQuery(e.target.value)}
+                     onKeyDown={(e) => e.key === 'Enter' && fetchOpenLibrary(olQuery)}
+                     placeholder="OpenLibrary'dan kitob qidiring (masalan: harry potter)..."
+                     className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none focus:border-honey/50 transition-all"
+                     data-testid="input-openlibrary-search"
+                  />
+                  <button
+                     onClick={() => fetchOpenLibrary(olQuery)}
+                     className="bg-honey text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest"
+                     data-testid="button-openlibrary-search"
+                  >
+                     Qidirish
+                  </button>
+               </div>
+               <div className="mb-6 px-2 text-[10px] uppercase tracking-widest font-black text-honey/60">
+                  <i className="fas fa-globe mr-2"></i>
+                  {olQuery.trim() ? `"${olQuery}" natijalari` : 'Kunning eng mashhur kitoblari'}
+               </div>
+               {olLoading ? (
+                  <div className="flex flex-col items-center justify-center py-32">
+                     <div className="w-16 h-16 border-4 border-honey border-t-transparent rounded-full animate-spin"></div>
+                     <p className="text-gray-400 mt-6 font-bold uppercase tracking-widest text-xs">OpenLibrary yuklanmoqda...</p>
+                  </div>
+               ) : olResults.length === 0 ? (
+                  <div className="py-32 text-center glass-premium rounded-[4rem] border-white/5">
+                     <i className="fas fa-book text-6xl text-honey/20 mb-10"></i>
+                     <h2 className="text-3xl font-black text-white mb-4 uppercase tracking-tighter">Hech narsa topilmadi</h2>
+                     <p className="text-gray-500 font-bold">Boshqa kalit so'z bilan urinib ko'ring.</p>
+                  </div>
+               ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6">
+                     {olResults.map((b: any, idx: number) => (
+                        <a
+                           key={b.ol_key || idx}
+                           href={b.read_url}
+                           target="_blank"
+                           rel="noreferrer"
+                           className="group cursor-pointer"
+                           data-testid={`card-openlibrary-${idx}`}
+                        >
+                           <div className="aspect-[3/4] rounded-2xl overflow-hidden mb-3 glass-premium relative group-hover:scale-[1.03] transition-all duration-500 shadow-2xl bg-white/5">
+                              {b.cover_url ? (
+                                 <img src={b.cover_url} className="w-full h-full object-cover opacity-90 group-hover:opacity-100" alt={b.title} />
+                              ) : (
+                                 <div className="w-full h-full flex items-center justify-center">
+                                    <i className="fas fa-book text-4xl text-honey/30"></i>
+                                 </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-60"></div>
+                              <div className="absolute top-2 right-2 bg-honey text-white px-2 py-0.5 rounded-md text-[7px] font-black uppercase">
+                                 OL
+                              </div>
+                              {b.year && (
+                                 <div className="absolute bottom-2 left-2 text-[8px] font-black text-white/80 bg-black/50 px-2 py-0.5 rounded">
+                                    {b.year}
+                                 </div>
+                              )}
+                           </div>
+                           <h4 className="font-black text-xs text-white group-hover:text-honey transition-colors uppercase tracking-tight line-clamp-2 px-1">{b.title}</h4>
+                           <p className="text-gray-500 text-[8px] font-black uppercase mt-1 px-1 opacity-60 line-clamp-1">{b.author}</p>
+                        </a>
+                     ))}
+                  </div>
+               )}
+            </div>
+         ) : activeTab === 'katalog' ? (
             <>
                {/* Kategoriyalar */}
                <div className="mb-12 overflow-x-auto no-scrollbar">

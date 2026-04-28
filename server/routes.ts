@@ -6,6 +6,7 @@ import { authRoutes } from "./modules/auth/route";
 import { chatRoutes } from "./modules/chat/route";
 import { commentRoutes } from "./modules/comment/route";
 import { healthRoutes } from "./modules/health/route";
+import { integrationRoutes } from "./modules/integrations/route";
 import { libraryRoutes } from "./modules/library/route";
 import { liveRoutes } from "./modules/live/route";
 import { videoRoutes } from "./modules/video/route";
@@ -24,6 +25,7 @@ export async function registerRoutes(
   app.use("/api/v1/live", liveRoutes());
   app.use("/api/v1/comment", commentRoutes());
   app.use("/api/v1/admin", adminRoutes());
+  app.use("/api/v1/integrations", integrationRoutes());
 
   return httpServer;
 }

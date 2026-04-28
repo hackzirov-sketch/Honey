@@ -193,6 +193,16 @@ const Media: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('Barchasi');
   const [categories, setCategories] = useState<string[]>(['Barchasi']);
+  const [mediaTab, setMediaTab] = useState<'honey' | 'youtube' | 'instagram'>('honey');
+  const [ytQuery, setYtQuery] = useState('');
+  const [ytItems, setYtItems] = useState<any[]>([]);
+  const [ytLoading, setYtLoading] = useState(false);
+  const [ytSelected, setYtSelected] = useState<any | null>(null);
+  const [igItems, setIgItems] = useState<any[]>([]);
+  const [igLoading, setIgLoading] = useState(false);
+  const [igError, setIgError] = useState<string>('');
+  const [ytLoaded, setYtLoaded] = useState(false);
+  const [igLoaded, setIgLoaded] = useState(false);
 
   const authHeaders = () => ({
     'Content-Type': 'application/json',
@@ -269,6 +279,55 @@ const Media: React.FC = () => {
   useEffect(() => {
     fetchVideos();
   }, []);
+
+  // YouTube qidirish
+  const fetchYouTube = async (q: string) => {
+    setYtLoading(true);
+    try {
+      const url = q.trim()
+        ? `${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.YOUTUBE_SEARCH}?q=${encodeURIComponent(q)}&limit=12`
+        : `${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.YOUTUBE_TRENDING}?region=UZ&limit=12`;
+      const res = await fetch(url, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setYtItems(Array.isArray(data) ? data : []);
+        setYtLoaded(true);
+      } else if (res.status === 503) {
+        setYtItems([]);
+        setYtLoaded(true);
+      }
+    } catch { /* offline */ } finally {
+      setYtLoading(false);
+    }
+  };
+
+  // Instagram feed
+  const fetchInstagram = async () => {
+    setIgLoading(true); setIgError('');
+    try {
+      const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTEGRATIONS.INSTAGRAM_FEED}?limit=12`, { headers: authHeaders() });
+      if (res.ok) {
+        const data = await res.json();
+        setIgItems(Array.isArray(data) ? data : []);
+        setIgLoaded(true);
+      } else if (res.status === 503) {
+        setIgError("Instagram API hali ulanmagan. Adminga murojaat qiling.");
+        setIgLoaded(true);
+      } else {
+        setIgError("Instagram'dan ma'lumot yuklanmadi.");
+        setIgLoaded(true);
+      }
+    } catch {
+      setIgError("Server bilan aloqa yo'q.");
+    } finally {
+      setIgLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mediaTab === 'youtube' && !ytLoaded) fetchYouTube('');
+    if (mediaTab === 'instagram' && !igLoaded) fetchInstagram();
+  }, [mediaTab]);
 
   const handleCommentAdded = () => {
     fetchVideos();
@@ -484,6 +543,133 @@ const Media: React.FC = () => {
         <h1 className="text-4xl md:text-8xl font-black honey-glow-text tracking-tighter uppercase leading-none">STREAMING STUDIO</h1>
       </div>
 
+      {/* Manba Tablar */}
+      <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 mb-10 max-w-2xl shadow-xl">
+        <button onClick={() => setMediaTab('honey')} data-testid="button-tab-honey"
+          className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${mediaTab === 'honey' ? 'bg-honey text-white shadow-lg shadow-honey/30' : 'text-honey/70 hover:text-white hover:bg-white/5'}`}>
+          <i className="fas fa-play-circle mr-2"></i>Honey
+        </button>
+        <button onClick={() => setMediaTab('youtube')} data-testid="button-tab-youtube"
+          className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${mediaTab === 'youtube' ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'text-red-500/70 hover:text-white hover:bg-white/5'}`}>
+          <i className="fab fa-youtube mr-2"></i>YouTube
+        </button>
+        <button onClick={() => setMediaTab('instagram')} data-testid="button-tab-instagram"
+          className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${mediaTab === 'instagram' ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white shadow-lg shadow-pink-500/30' : 'text-pink-400/70 hover:text-white hover:bg-white/5'}`}>
+          <i className="fab fa-instagram mr-2"></i>Instagram
+        </button>
+      </div>
+
+      {mediaTab === 'youtube' && (
+        <div className="mb-20" data-testid="section-youtube">
+          <div className="flex flex-col md:flex-row gap-3 mb-8">
+            <input value={ytQuery} onChange={e => setYtQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && fetchYouTube(ytQuery)}
+              placeholder="YouTube'dan video qidiring..."
+              className="flex-1 bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-white outline-none focus:border-red-500/50 transition-all"
+              data-testid="input-youtube-search" />
+            <button onClick={() => fetchYouTube(ytQuery)}
+              className="bg-red-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-red-700 transition-all"
+              data-testid="button-youtube-search">
+              <i className="fab fa-youtube mr-2"></i>Qidirish
+            </button>
+          </div>
+          {ytSelected && (
+            <div className="mb-10 glass-premium rounded-[2rem] p-6 border border-red-500/20" data-testid="player-youtube">
+              <div className="flex justify-between items-start mb-4">
+                <h3 className="text-xl font-black text-white uppercase tracking-tight line-clamp-1">{ytSelected.title}</h3>
+                <button onClick={() => setYtSelected(null)} className="text-white/50 hover:text-white text-xl"><i className="fas fa-times"></i></button>
+              </div>
+              <div className="aspect-video rounded-2xl overflow-hidden">
+                <iframe src={ytSelected.embed_url} className="w-full h-full" allowFullScreen allow="accelerometer; autoplay; encrypted-media; picture-in-picture"></iframe>
+              </div>
+              <p className="text-gray-400 text-sm font-bold mt-4">{ytSelected.channel}</p>
+            </div>
+          )}
+          {ytLoading ? (
+            <div className="flex flex-col items-center justify-center py-32">
+              <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-400 mt-6 font-bold uppercase tracking-widest text-xs">YouTube yuklanmoqda...</p>
+            </div>
+          ) : ytItems.length === 0 ? (
+            <div className="py-32 text-center glass-premium rounded-[3rem] border-white/5">
+              <i className="fab fa-youtube text-6xl text-red-500/30 mb-8"></i>
+              <h2 className="text-2xl font-black text-white mb-4 uppercase">YouTube ulanmagan</h2>
+              <p className="text-gray-500 font-bold">Admin YOUTUBE_API_KEY ni sozlashi kerak.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {ytItems.map((v: any) => (
+                <div key={v.id} onClick={() => setYtSelected(v)} className="group cursor-pointer" data-testid={`card-youtube-${v.id}`}>
+                  <div className="aspect-video rounded-2xl overflow-hidden mb-3 relative shadow-2xl bg-white/5">
+                    {v.thumbnail && <img src={v.thumbnail} className="w-full h-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-500" alt={v.title} />}
+                    <div className="absolute top-2 left-2 bg-red-600 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase">YouTube</div>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all">
+                      <div className="w-16 h-16 bg-red-600 text-white rounded-full flex items-center justify-center text-2xl shadow-lg"><i className="fas fa-play ml-1"></i></div>
+                    </div>
+                  </div>
+                  <h4 className="font-black text-sm text-white group-hover:text-red-500 transition-colors line-clamp-2">{v.title}</h4>
+                  <p className="text-gray-500 text-[10px] font-bold mt-1 uppercase">{v.channel}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {mediaTab === 'instagram' && (
+        <div className="mb-20" data-testid="section-instagram">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight"><i className="fab fa-instagram mr-2 text-pink-500"></i>Instagram Feed</h3>
+              <p className="text-gray-500 text-xs font-bold mt-1">Honey Ecosystem'ning rasmiy Instagram lentasi</p>
+            </div>
+            <button onClick={fetchInstagram} disabled={igLoading}
+              className="bg-gradient-to-r from-pink-500 to-purple-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50"
+              data-testid="button-instagram-refresh">
+              <i className="fas fa-sync-alt mr-2"></i>Yangilash
+            </button>
+          </div>
+          {igLoading ? (
+            <div className="flex flex-col items-center justify-center py-32">
+              <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-gray-400 mt-6 font-bold uppercase tracking-widest text-xs">Instagram yuklanmoqda...</p>
+            </div>
+          ) : igError ? (
+            <div className="py-32 text-center glass-premium rounded-[3rem] border-white/5">
+              <i className="fab fa-instagram text-6xl text-pink-500/30 mb-8"></i>
+              <h2 className="text-2xl font-black text-white mb-4 uppercase">Instagram ulanmagan</h2>
+              <p className="text-gray-500 font-bold">{igError}</p>
+            </div>
+          ) : igItems.length === 0 ? (
+            <div className="py-32 text-center glass-premium rounded-[3rem] border-white/5">
+              <i className="fab fa-instagram text-6xl text-pink-500/30 mb-8"></i>
+              <p className="text-gray-500 font-bold">Hozircha postlar yo'q.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {igItems.map((p: any) => (
+                <a key={p.id} href={p.permalink} target="_blank" rel="noreferrer"
+                  className="group cursor-pointer aspect-square rounded-2xl overflow-hidden relative bg-white/5 shadow-xl"
+                  data-testid={`card-instagram-${p.id}`}>
+                  {p.media_type === 'VIDEO' ? (
+                    <video src={p.media_url} poster={p.thumbnail_url} className="w-full h-full object-cover" />
+                  ) : (
+                    <img src={p.thumbnail_url || p.media_url} className="w-full h-full object-cover group-hover:scale-110 transition-all duration-700" alt="" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent opacity-0 group-hover:opacity-100 transition-all p-4 flex items-end">
+                    <p className="text-white text-[10px] font-bold line-clamp-3">{p.caption}</p>
+                  </div>
+                  <div className="absolute top-2 right-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white px-2 py-0.5 rounded text-[8px] font-black uppercase">
+                    <i className={`fas fa-${p.media_type === 'VIDEO' ? 'video' : 'camera'}`}></i>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {mediaTab === 'honey' && (<>
       <div className="flex flex-col gap-8 mb-12">
         <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
           <div className="relative w-full md:max-w-xl">
@@ -619,6 +805,7 @@ const Media: React.FC = () => {
           </div>
         </div>
       )}
+      </>)}
     </div>
   );
 };
