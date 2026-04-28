@@ -55,6 +55,14 @@ function requireGroupMember(groupId: string, userId: string) {
   return { group, member };
 }
 
+function validateReplyTarget(replyToId: string | null | undefined, chatId?: string, groupId?: string) {
+  if (!replyToId) return;
+  const replyMsg = sqlite.prepare("SELECT id, chat_id, group_id, deleted_at FROM messages WHERE id = ?").get(replyToId) as any;
+  if (!replyMsg || replyMsg.deleted_at) throw new HttpError(400, "Invalid reply target");
+  if (chatId && replyMsg.chat_id !== chatId) throw new HttpError(400, "Reply target must be in same chat");
+  if (groupId && replyMsg.group_id !== groupId) throw new HttpError(400, "Reply target must be in same group");
+}
+
 export const chatService = {
   chats(userId: string) {
     return (sqlite.prepare("SELECT * FROM chats WHERE user_a_id = ? OR user_b_id = ? ORDER BY updated_at DESC").all(userId, userId) as any[])
@@ -73,6 +81,7 @@ export const chatService = {
   send(chatId: string, userId: string, content: string, messageType = "text", file?: string | null, replyToId?: string | null) {
     const chat = sqlite.prepare("SELECT * FROM chats WHERE id = ?").get(chatId) as any;
     if (!chat || (chat.user_a_id !== userId && chat.user_b_id !== userId)) throw new HttpError(404, "Chat not found");
+    validateReplyTarget(replyToId, chatId, undefined);
     return serializeMessage(chatRepo.createMessage({ chatId, senderId: userId, content, messageType, file, replyToId }));
   },
   groups(userId: string) {
@@ -124,6 +133,7 @@ export const chatService = {
   },
   groupSend(groupId: string, userId: string, content: string, messageType = "text", file?: string | null, replyToId?: string | null) {
     this.joinGroup(groupId, userId);
+    validateReplyTarget(replyToId, undefined, groupId);
     return serializeMessage(chatRepo.createMessage({ groupId, senderId: userId, content, messageType, file, replyToId }));
   },
   editMessage(id: string, userId: string, content: string) {

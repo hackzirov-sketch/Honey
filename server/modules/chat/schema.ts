@@ -11,11 +11,11 @@ export const createGroupSchema = z.object({
 });
 
 export const sendMessageSchema = z.object({
-  content: z.string().min(1),
+  content: z.string().trim().min(1),
   message_type: z.string().optional().default("text"),
   reply_to_id: z.string().optional().nullable(),
 });
 
 export const editMessageSchema = z.object({
-  content: z.string().min(1),
+  content: z.string().trim().min(1),
 });
