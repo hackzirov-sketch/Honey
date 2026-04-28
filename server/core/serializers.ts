@@ -44,30 +44,29 @@ export function serializeBook(row: any) {
   };
 }
 
-export function serializeMessage(row: any) {
-  const reactionRows = sqlite.prepare(
-    "SELECT emoji, user_id FROM message_reactions WHERE message_id = ?"
-  ).all(row.id) as Array<{ emoji: string; user_id: string }>;
-
-  // Group reactions by emoji
-  const grouped: Record<string, { emoji: string; count: number; users: string[] }> = {};
-  for (const r of reactionRows) {
-    if (!grouped[r.emoji]) grouped[r.emoji] = { emoji: r.emoji, count: 0, users: [] };
-    grouped[r.emoji].count++;
-    grouped[r.emoji].users.push(r.user_id);
+export function serializeMessage(row: any): any {
+  let replyTo: any = null;
+  if (row.reply_to_id) {
+    const r = sqlite.prepare("SELECT id, content, sender_id, message_type FROM messages WHERE id = ?").get(row.reply_to_id) as any;
+    if (r) {
+      replyTo = {
+        id: r.id,
+        content: r.content,
+        sender: userById(r.sender_id),
+        message_type: r.message_type || "text",
+      };
+    }
   }
-
   return {
     id: row.id,
-    chat_id: row.chat_id,
-    group_id: row.group_id,
     content: row.content,
     sender: userById(row.sender_id),
     created_at: row.created_at,
     message_type: row.message_type || "text",
     file: row.file,
+    reply_to: replyTo,
+    edited_at: row.edited_at || null,
     link_preview: detectLinkPreview(row.content),
-    reactions: Object.values(grouped),
   };
 }
 

@@ -73,8 +73,7 @@ export const API_ENDPOINTS = {
         AI_IMPROVE: "/api/v1/chat/ai/improve/",// POST {text}
         GLOBAL_SEARCH: "/api/v1/chat/search/", // GET ?search=query
         MESSAGE_DELETE: (id: string) => `/api/v1/chat/messages/${id}/`, // DELETE
-        REACTION_ADD: (id: string) => `/api/v1/chat/messages/${id}/reactions/`, // POST {emoji}
-        REACTION_REMOVE: (id: string, emoji: string) => `/api/v1/chat/messages/${id}/reactions/${encodeURIComponent(emoji)}/`, // DELETE
+        MESSAGE_EDIT: (id: string) => `/api/v1/chat/messages/${id}/`,   // PATCH {content}
     },
 
     // --- AI (geminiService.ts dan foydalanish uchun) ---
@@ -95,9 +94,8 @@ export const API_ENDPOINTS = {
 
     // --- Admin ---
     ADMIN: {
-        USERS: "/api/v1/admin/users/",                              // GET, POST
+        USERS: "/api/v1/admin/users/",                           // GET
         USER_DELETE: (id: string) => `/api/v1/admin/users/${id}/`,  // DELETE
-        USER_UPDATE: (id: string) => `/api/v1/admin/users/${id}/`,  // PATCH
         PENDING: "/api/v1/admin/pending-registrations/",         // GET
         PENDING_DELETE: (id: string) => `/api/v1/admin/pending-registrations/${id}/`, // DELETE
         STATS: "/api/v1/admin/stats/",                            // GET

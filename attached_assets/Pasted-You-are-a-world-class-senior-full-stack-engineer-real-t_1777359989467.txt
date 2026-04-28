@@ -1,0 +1,437 @@
+You are a world-class senior full-stack engineer, real-time systems architect, UI/UX systems designer, product designer, and strict QA engineer.
+
+PROJECT: Honey Web App  
+FOCUS: HUB / MESSENGER (FULL REBUILD LEVEL, BUT SAFE WITH EXISTING LOGIC)
+
+==================================================
+🔥 CORE MISSION
+==================================================
+
+Rebuild the entire Hub (Messenger) into a **Telegram Web-level communication system** with:
+- full feature parity (UX-wise, not copyrighted clone)
+- enterprise-level performance
+- premium Honey UI design
+- real-time stability
+- mobile-first excellence
+- scalable architecture
+
+⚠️ CRITICAL RULE:
+DO NOT blindly rewrite backend/auth/API.
+You MUST:
+1. Audit existing codebase
+2. Reuse existing architecture where possible
+3. Incrementally upgrade
+4. Never break working logic
+
+==================================================
+🧠 HUB = NOT JUST CHAT
+==================================================
+
+The Hub must become a **full communication operating system**, including:
+
+✔ Chat system  
+✔ Chat management  
+✔ File/media system  
+✔ Settings system  
+✔ Notification system  
+✔ Privacy system  
+✔ UI personalization  
+✔ Real-time system  
+✔ Keyboard-driven UX  
+✔ Mobile-first experience  
+
+==================================================
+🏗️ FULL SYSTEM ARCHITECTURE (FRONTEND)
+==================================================
+
+LAYOUT STRUCTURE:
+
+[ LEFT SIDEBAR ]  [ CHAT AREA ]  [ RIGHT PANEL ]
+
+MOBILE:
+- Sidebar = Drawer
+- Right panel = Full screen sheet
+
+--------------------------------------------------
+LEFT SIDEBAR (CHAT LIST SYSTEM)
+--------------------------------------------------
+
+SECTIONS:
+1. Top bar:
+   - Hamburger menu
+   - Profile avatar
+   - Search button
+   - New chat button
+
+2. Search system:
+   - Instant search
+   - Debounced (300ms)
+   - Global search (users + messages + files)
+
+3. Filter tabs:
+   - All
+   - Unread
+   - Pinned
+   - Archived
+   - Groups
+   - Channels
+
+4. Chat list item:
+   - Avatar
+   - Name
+   - Last message preview
+   - Timestamp
+   - Unread badge
+   - Typing preview
+   - Online indicator
+   - Muted icon
+   - Pinned icon
+
+5. Interactions:
+   - Click → open chat
+   - Right click → context menu
+   - Mobile swipe:
+     - left: archive
+     - right: pin/mute
+
+6. Context menu:
+   - Pin / Unpin
+   - Mute / Unmute
+   - Archive
+   - Mark as read
+   - Delete
+   - Clear history
+   - Open profile
+
+--------------------------------------------------
+CHAT AREA (CORE SYSTEM)
+--------------------------------------------------
+
+HEADER:
+- Avatar
+- Name
+- Status (online/last seen)
+- Actions:
+  - Search in chat
+  - Voice call
+  - Video call
+  - Info panel
+  - More menu
+
+MESSAGE SYSTEM:
+
+Each message must support:
+- Sender grouping
+- Bubble styles (in/out)
+- Timestamp
+- Read/delivered status
+- Edited label
+- Reply preview
+- Forwarded label
+- Reactions
+- Attachments
+- URL preview
+- Code blocks (if needed)
+- Emoji rendering
+
+ADVANCED MESSAGE FEATURES:
+- Reply to message
+- Edit message
+- Delete message (for self / for all if allowed)
+- Forward message
+- Pin message
+- Copy text
+- Save message
+
+--------------------------------------------------
+MESSAGE CONTEXT MENU
+--------------------------------------------------
+
+On right-click / long press:
+
+- Reply
+- Edit
+- Delete
+- Forward
+- Copy
+- React
+- Pin
+- Save
+- Download
+
+--------------------------------------------------
+MESSAGE LIST PERFORMANCE
+--------------------------------------------------
+
+- Virtualized rendering (200+ messages)
+- No full re-render
+- Smooth scroll
+- Sticky date separators
+- Auto-scroll only near bottom
+
+--------------------------------------------------
+COMPOSER (INPUT SYSTEM)
+--------------------------------------------------
+
+Must include:
+
+- Multiline input
+- Enter to send
+- Shift+Enter new line
+- Emoji picker
+- Attachment button
+- Voice placeholder
+- Send button
+- Reply preview
+- Edit mode
+- Draft saving
+
+DRAFT SYSTEM:
+- Save per chat:
+  honey:chat:{chatId}:draft
+- Restore on reopen
+- Clear on send
+
+--------------------------------------------------
+FILE & MEDIA SYSTEM (ADVANCED)
+--------------------------------------------------
+
+FILES PANEL (Telegram-like):
+
+Tabs:
+- Media
+- Files
+- Links
+- Voice
+
+MEDIA:
+- Grid layout
+- Lazy loading
+- Lightbox preview
+- Download button
+
+FILES:
+- List view
+- Name
+- Size
+- Sender
+- Date
+- Sort options
+
+LINKS:
+- Extracted links
+- Preview cards
+- Copy/open
+
+UPLOAD SYSTEM:
+- Drag & drop
+- Progress bar
+- Cancel upload
+- Retry
+- Type validation
+
+PREVIEW OPTIMIZATION:
+- Images compressed (max 500px via canvas)
+- Video thumbnail
+- Revoke object URLs
+
+--------------------------------------------------
+RIGHT PANEL (CHAT INFO)
+--------------------------------------------------
+
+Contains:
+- Avatar
+- Name
+- Bio/status
+- Notifications toggle
+- Media preview
+- Files shortcut
+- Members (group)
+- Leave/delete
+
+--------------------------------------------------
+🍔 HAMBURGER MENU SYSTEM
+--------------------------------------------------
+
+Must be premium:
+
+Menu items:
+- Profile
+- Saved messages
+- Contacts
+- Calls
+- Files & Media
+- Settings
+- Archived chats
+- Help
+- Logout
+
+UX:
+- Smooth animation
+- Backdrop blur
+- Keyboard accessible
+- Mobile full-screen
+
+--------------------------------------------------
+⚙️ SETTINGS SYSTEM (FULL)
+--------------------------------------------------
+
+1. PROFILE:
+- Avatar
+- Name
+- Username
+- Bio
+
+2. APPEARANCE:
+- Dark/light/system
+- Accent color
+- Chat wallpaper
+- Font size
+- Bubble style
+- Compact mode
+- Animation level
+
+3. PRIVACY:
+- Online visibility
+- Read receipts
+- Typing visibility
+- Blocked users
+
+4. NOTIFICATIONS:
+- Sounds
+- Mute chats
+- Previews
+- Desktop notifications
+
+5. CHAT SETTINGS:
+- Enter to send
+- Auto-download
+- Scroll behavior
+- Emoji suggestions
+
+6. STORAGE:
+- Cache size
+- Clear cache
+- Auto-delete rules
+
+7. SHORTCUTS:
+- Full keyboard guide
+
+All stored in:
+- honey:hub:settings
+
+--------------------------------------------------
+⚡ REAL-TIME SYSTEM
+--------------------------------------------------
+
+Must be stable:
+
+- Join chat room
+- Leave previous room
+- Receive messages
+- Typing indicator
+- Reactions sync
+- Read status
+- Reconnect handling
+- No duplicate listeners
+
+Typing:
+- Auto stop after 3s
+
+Reactions:
+- Optimistic update
+- Socket sync
+
+--------------------------------------------------
+💾 LOCAL STORAGE SYSTEM
+--------------------------------------------------
+
+Keys:
+- messages cache
+- drafts
+- settings
+- recent chats
+
+Rules:
+- no huge data
+- dedupe messages
+- safe fallback
+
+--------------------------------------------------
+📱 MOBILE UX (CRITICAL)
+--------------------------------------------------
+
+- Drawer sidebar
+- Fullscreen panels
+- Safe-area support
+- Big touch targets
+- No overflow
+- Smooth navigation
+
+--------------------------------------------------
+🎨 HONEY UI SYSTEM
+--------------------------------------------------
+
+Style:
+- Premium dark-first
+- Glassmorphism (light use)
+- rounded-xl / 2xl
+- Smooth animations
+- Clean spacing
+
+NO:
+- messy layout
+- overflow
+- cramped UI
+
+--------------------------------------------------
+🚀 PERFORMANCE
+--------------------------------------------------
+
+- React.memo
+- Debounce search
+- Virtual list
+- Lazy load images
+- Cleanup everything
+
+--------------------------------------------------
+🧪 QA (MANDATORY)
+--------------------------------------------------
+
+Check:
+- 320px
+- 375px
+- iPhone 12+
+- Tablet
+- Desktop
+
+Fix:
+- all bugs
+- all TS errors
+- all console errors
+
+--------------------------------------------------
+📤 FINAL OUTPUT FORMAT
+--------------------------------------------------
+
+### AUDIT
+### FIXES
+### FEATURES ADDED
+### PERFORMANCE IMPROVEMENTS
+### FINAL STATUS
+### MANUAL TESTS
+
+==================================================
+FINAL INSTRUCTION
+==================================================
+
+Do NOT rush.
+
+First deeply analyze the codebase.  
+Then build the Hub step-by-step like a real production system.
+
+Make it feel like:
+🔥 Telegram Web + Discord + WhatsApp  
+BUT visually: Honey premium app.
+
+BEGIN NOW.

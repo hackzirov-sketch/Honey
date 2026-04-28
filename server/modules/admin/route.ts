@@ -168,7 +168,7 @@ export function adminRoutes() {
   }));
 
   router.delete("/users/:id/", asyncHandler(async (req, res) => {
-    const id = req.params.id;
+    const id = String(req.params.id);
     const target = sqlite.prepare("SELECT id, is_superuser FROM users WHERE id = ?").get(id) as any;
     if (!target) throw new HttpError(404, "Foydalanuvchi topilmadi");
     if (req.user!.id === id) throw new HttpError(400, "O'zingizni o'chira olmaysiz");

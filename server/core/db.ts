@@ -129,6 +129,8 @@ export function initDb() {
       content TEXT NOT NULL,
       message_type TEXT NOT NULL DEFAULT 'text',
       file TEXT,
+      reply_to_id TEXT,
+      edited_at TEXT,
       created_at TEXT NOT NULL,
       deleted_at TEXT
     );
@@ -197,7 +199,17 @@ export function initDb() {
     );
   `);
 
+  ensureColumn("messages", "reply_to_id", "TEXT");
+  ensureColumn("messages", "edited_at", "TEXT");
+
   seedDefaults();
+}
+
+function ensureColumn(table: string, column: string, type: string) {
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as any[];
+  if (!cols.some((c) => c.name === column)) {
+    sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }
 
 function seedDefaults() {

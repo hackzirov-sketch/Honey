@@ -136,6 +136,8 @@ export const messages = sqliteTable("messages", {
   content: text("content").notNull(),
   messageType: text("message_type").notNull().default("text"),
   file: text("file"),
+  replyToId: text("reply_to_id"),
+  editedAt: text("edited_at"),
   createdAt: text("created_at").notNull(),
   deletedAt: text("deleted_at"),
 });

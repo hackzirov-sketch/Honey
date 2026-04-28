@@ -62,10 +62,10 @@ export const chatService = {
     if (!chat || (chat.user_a_id !== userId && chat.user_b_id !== userId)) throw new HttpError(404, "Chat not found");
     return (sqlite.prepare("SELECT * FROM messages WHERE chat_id = ? AND deleted_at IS NULL ORDER BY created_at").all(chatId) as any[]).map(serializeMessage);
   },
-  send(chatId: string, userId: string, content: string, messageType = "text", file?: string | null) {
+  send(chatId: string, userId: string, content: string, messageType = "text", file?: string | null, replyToId?: string | null) {
     const chat = sqlite.prepare("SELECT * FROM chats WHERE id = ?").get(chatId) as any;
     if (!chat || (chat.user_a_id !== userId && chat.user_b_id !== userId)) throw new HttpError(404, "Chat not found");
-    return serializeMessage(chatRepo.createMessage({ chatId, senderId: userId, content, messageType, file }));
+    return serializeMessage(chatRepo.createMessage({ chatId, senderId: userId, content, messageType, file, replyToId }));
   },
   groups(userId: string) {
     return (sqlite.prepare(`
@@ -98,9 +98,18 @@ export const chatService = {
   groupMessages(groupId: string) {
     return (sqlite.prepare("SELECT * FROM messages WHERE group_id = ? AND deleted_at IS NULL ORDER BY created_at").all(groupId) as any[]).map(serializeMessage);
   },
-  groupSend(groupId: string, userId: string, content: string, messageType = "text", file?: string | null) {
+  groupSend(groupId: string, userId: string, content: string, messageType = "text", file?: string | null, replyToId?: string | null) {
     this.joinGroup(groupId, userId);
-    return serializeMessage(chatRepo.createMessage({ groupId, senderId: userId, content, messageType, file }));
+    return serializeMessage(chatRepo.createMessage({ groupId, senderId: userId, content, messageType, file, replyToId }));
+  },
+  editMessage(id: string, userId: string, content: string) {
+    const msg = sqlite.prepare("SELECT * FROM messages WHERE id = ?").get(id) as any;
+    if (!msg) throw new HttpError(404, "Message not found");
+    if (msg.sender_id !== userId) throw new HttpError(403, "Forbidden");
+    if (msg.deleted_at) throw new HttpError(400, "Message deleted");
+    sqlite.prepare("UPDATE messages SET content = ?, edited_at = ? WHERE id = ?").run(content, nowIso(), id);
+    const fresh = sqlite.prepare("SELECT * FROM messages WHERE id = ?").get(id) as any;
+    return serializeMessage(fresh);
   },
   search(query: string) {
     const q = `%${query}%`;
