@@ -282,7 +282,7 @@ const Classroom: React.FC = () => {
   const [showSidebar, setShowSidebar] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeer>>(new Map());
   const peersRef = useRef<Map<string, { userId: string; pc: RTCPeerConnection; stream: MediaStream }>>(new Map());

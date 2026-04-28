@@ -144,7 +144,7 @@ const Admin: React.FC = () => {
 
             const res = await fetch(url, {
                 method: isCreate ? 'POST' : 'PATCH',
-                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                headers: { ...authHeaders() },
                 body: JSON.stringify(body),
             });
             if (res.ok) {

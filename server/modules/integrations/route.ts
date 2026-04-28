@@ -76,7 +76,7 @@ export function integrationRoutes() {
   }));
   router.delete("/zoom/meetings/:id/", authRequired, asyncHandler(async (req, res) => {
     if (!zoom.isConfigured()) return res.status(503).json({ detail: "Zoom API not configured" });
-    await zoom.deleteMeeting(req.params.id);
+    await zoom.deleteMeeting(req.params.id as string);
     res.status(204).end();
   }));
 
