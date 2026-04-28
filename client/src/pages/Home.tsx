@@ -7,7 +7,9 @@ const Home: React.FC<{ onStart: () => void }> = ({ onStart }) => {
     { path: '/messenger', title: 'Intelligence Hub', desc: 'Sun\'iy intellekt tomonidan boshqariladigan premium muloqot muhiti.', icon: 'fa-brain', color: 'text-blue-400' },
     { path: '/media', title: 'Immersive Media', desc: '4K darsliklar va interaktiv bilimlar oqimi.', icon: 'fa-vr-cardboard', color: 'text-amber-400' },
     { path: '/classroom', title: 'Jonli Mentorlik', desc: 'Real-vaqtda mutaxassislar bilan yuzma-yuz muloqot.', icon: 'fa-user-tie', color: 'text-emerald-400' },
-    { path: '/library', title: 'Prism Kutubxonasi', desc: 'Dunyodagi eng sara bilimlar to\'plami bitta ekotizimda.', icon: 'fa-book-atlas', color: 'text-cyan-400', isSpecial: true },
+    { path: '/library', title: 'Prism Kutubxonasi', desc: 'Dunyodagi eng sara bilimlar to\'plami bitta ekotizimda.', icon: 'fa-book-atlas', color: 'text-cyan-400' },
+    { path: '/ai-assistant', title: 'AI Mentor', desc: 'Shaxsiy AI mentor — savollaringizga aqlli javoblar.', icon: 'fa-robot', color: 'text-purple-400' },
+    { path: '/knowledge-base', title: 'Bilim Markazi', desc: 'Top o\'quv markazlari va eksklyuziv kurslar.', icon: 'fa-graduation-cap', color: 'text-honey' },
   ];
 
   return (
@@ -37,7 +39,7 @@ const Home: React.FC<{ onStart: () => void }> = ({ onStart }) => {
         </div>
       </section>
       {/* Modern Bento Grid Features */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 px-2 sm:px-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 px-2 sm:px-0">
          {features.map((item, i) => (
            <Link key={i} to={item.path} className={`glass-premium p-8 md:p-12 rounded-[2rem] md:rounded-[3rem] group hover:border-white/20 transition-all duration-500 overflow-hidden relative`}>
               <div className="flex items-center justify-between mb-8 md:mb-10">

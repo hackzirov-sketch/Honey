@@ -8,6 +8,8 @@ import Media from './pages/Media';
 import Classroom from './pages/Classroom';
 import Library from './pages/Library';
 import Security from './pages/Security';
+import AIAssistant from './pages/AIAssistant';
+import KnowledgeBase from './pages/KnowledgeBase';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Auth from './pages/Auth';
@@ -239,10 +241,14 @@ const AppContent: React.FC = () => {
 
           <div className="flex items-center gap-3 md:gap-4 lg:gap-8">
             <div className="hidden lg:flex items-center gap-6 mr-4 shrink-0">
-              {['AKADEMIYA', 'HAMJAMIYAT', 'XAVFSIZLIK'].map((link) => (
-                <span key={link} className={`text-[9px] font-black tracking-[0.3em] ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'} hover:text-honey cursor-pointer transition-colors uppercase pointer-events-auto`}>
-                  {link}
-                </span>
+              {[
+                { label: 'AKADEMIYA', path: '/knowledge-base' },
+                { label: 'HAMJAMIYAT', path: '/messenger' },
+                { label: 'XAVFSIZLIK', path: '/security' }
+              ].map((link) => (
+                <Link key={link.label} to={link.path} className={`text-[9px] font-black tracking-[0.3em] ${theme === 'dark' ? 'text-gray-300' : 'text-gray-800'} hover:text-honey cursor-pointer transition-colors uppercase pointer-events-auto`}>
+                  {link.label}
+                </Link>
               ))}
               {(user?.is_superuser || user?.is_staff || user?.username === 'admin') && (
                 <Link to="/admin" className={`text-[9px] font-black tracking-[0.3em] text-red-500 hover:text-red-400 cursor-pointer transition-colors uppercase pointer-events-auto`}>
@@ -305,6 +311,16 @@ const AppContent: React.FC = () => {
             <Route path="/security" element={
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
                 <Security />
+              </motion.div>
+            } />
+            <Route path="/ai-assistant" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <AIAssistant />
+              </motion.div>
+            } />
+            <Route path="/knowledge-base" element={
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }} className="h-full">
+                <KnowledgeBase />
               </motion.div>
             } />
             <Route path="/profile" element={

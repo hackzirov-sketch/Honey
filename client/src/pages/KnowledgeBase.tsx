@@ -12,52 +12,51 @@ const KnowledgeBase: React.FC = () => {
   ];
 
   return (
-    <div className="container mx-auto px-6 py-12">
+    <div className="max-w-screen-xl mx-auto px-6 py-12 animate-fadeIn">
       <div className="mb-20">
-        <div className="inline-flex items-center space-x-2 text-honey mb-4">
+        <div className="inline-flex items-center space-x-3 text-honey mb-6 bg-honey/5 px-6 py-2 rounded-full border border-honey/20">
           <i className="fas fa-building-columns"></i>
-          <span className="text-xs font-bold uppercase tracking-widest">O'quv Markazlari & Bilim Markazi</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.3em]">O'quv Markazlari & Bilim Markazi</span>
         </div>
-        <h1 className="text-5xl font-black mb-6 honey-gradient-text">O'zbekistondagi Top O'quv Markazlari</h1>
-        <p className="text-gray-400 max-w-3xl text-lg font-light leading-relaxed">
+        <h1 className="text-4xl md:text-7xl font-black mb-8 honey-text-gradient uppercase leading-tight tracking-tighter">O'zbekistondagi <br /> Top O'quv Markazlari</h1>
+        <p className="text-gray-300 max-w-3xl text-lg md:text-xl font-bold leading-relaxed opacity-80">
           Honey nafaqat muloqot va kontent platformasi — u raqamli bilim markaziga aylanmoqda. O'zbekistondagi eng nufuzli o'quv markazlari bilan integratsiya orqali ta'lim endi yanada yaqin.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-32">
         {centers.map((center, i) => (
-          <div key={center.name} className="glass p-10 rounded-[3rem] border border-honey/10 hover:border-honey/50 transition-all duration-500 group relative overflow-hidden">
+          <div key={center.name} className="glass-premium p-10 rounded-[3rem] border border-white/5 hover:border-honey/30 transition-all duration-500 group relative overflow-hidden shadow-2xl">
              <div className="absolute -right-4 -top-4 w-24 h-24 bg-honey/5 rounded-full blur-2xl group-hover:bg-honey/10 transition-all"></div>
-             <div className={`w-16 h-16 ${center.color} text-white rounded-2xl flex items-center justify-center font-black text-xl mb-8 shadow-xl`}>
+             <div className={`w-16 h-16 ${center.color} text-white rounded-2xl flex items-center justify-center font-black text-xl mb-8 shadow-xl border border-white/10 group-hover:scale-110 transition-transform duration-500`}>
                {center.icon}
              </div>
-             <h3 className="text-2xl font-bold mb-4">{center.name}</h3>
-             <p className="text-gray-500 text-sm mb-8 leading-relaxed">{center.desc}</p>
-             <button className="text-honey text-xs font-black uppercase tracking-widest flex items-center space-x-2 group-hover:translate-x-2 transition-all">
-               <span>Batafsil</span>
+             <h3 className="text-2xl font-black text-white mb-4 uppercase tracking-tight">{center.name}</h3>
+             <p className="text-gray-400 text-sm mb-8 leading-relaxed font-bold">{center.desc}</p>
+             <button className="text-honey text-[10px] font-black uppercase tracking-widest flex items-center space-x-2 group-hover:translate-x-2 transition-all">
+               <span>BATAFSIL O'RGANISH</span>
                <i className="fas fa-arrow-right"></i>
              </button>
           </div>
         ))}
       </div>
 
-      {/* Slide 8 content adapted */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 mb-32 items-center">
         <div className="relative group">
            <img 
             src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&q=80&w=800" 
             alt="Library" 
-            className="rounded-[4rem] w-full h-[600px] object-cover border border-honey/10 shadow-2xl"
+            className="rounded-[3rem] md:rounded-[4rem] w-full h-[500px] md:h-[600px] object-cover border border-white/10 shadow-[0_0_80px_rgba(255,184,0,0.1)] group-hover:scale-[1.02] transition-transform duration-700"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent rounded-[4rem]"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent rounded-[3rem] md:rounded-[4rem]"></div>
           <div className="absolute bottom-12 left-12 right-12">
-            <span className="text-honey text-xs font-bold uppercase tracking-widest mb-2 block">Premium Library</span>
-            <h2 className="text-4xl font-black mb-4">Raqamli Kutubxona</h2>
-            <p className="text-gray-300 text-lg font-light">Minglab kitoblar va audio darsliklar endi sizning qo'lingizda.</p>
+            <span className="text-honey text-[10px] font-black uppercase tracking-[0.3em] mb-3 block">Premium Library</span>
+            <h2 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tighter mb-4">Raqamli Kutubxona</h2>
+            <p className="text-gray-300 text-lg font-bold opacity-80 leading-relaxed">Minglab kitoblar va audio darsliklar endi sizning qo'lingizda.</p>
           </div>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {[
             { 
               title: "Kitob do'konlari integratsiyasi", 
@@ -75,26 +74,27 @@ const KnowledgeBase: React.FC = () => {
               desc: "Xalqaro va mahalliy universitet darslariga kirish" 
             },
           ].map((item, i) => (
-            <div key={i} className="glass p-8 rounded-[2.5rem] border border-honey/10 hover:bg-honey/5 transition-all flex items-start space-x-6">
-              <div className="w-16 h-16 rounded-2xl bg-honey/10 flex items-center justify-center text-3xl text-honey shrink-0">
+            <div key={i} className="glass-premium p-8 rounded-[2.5rem] border border-white/5 hover:border-honey/20 transition-all flex items-start space-x-6 shadow-xl group">
+              <div className="w-16 h-16 rounded-2xl bg-honey/10 flex items-center justify-center text-3xl text-honey shrink-0 group-hover:scale-110 transition-transform">
                 <i className={`fas ${item.icon}`}></i>
               </div>
               <div>
-                <h4 className="font-bold text-xl mb-2">{item.title}</h4>
-                <p className="text-gray-400 text-sm leading-relaxed">{item.desc}</p>
+                <h4 className="font-black text-xl text-white uppercase tracking-tight mb-2">{item.title}</h4>
+                <p className="text-gray-400 text-sm leading-relaxed font-bold opacity-70">{item.desc}</p>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="bg-honey p-16 rounded-[4rem] text-center shadow-[0_20px_60px_rgba(255,184,0,0.2)]">
-        <h2 className="text-4xl font-black text-black mb-8">Bilim — Bu Kuch!</h2>
-        <p className="text-xl max-w-4xl mx-auto text-black/80 font-medium leading-relaxed mb-10">
+      <div className="bg-honey p-12 md:p-20 rounded-[3rem] md:rounded-[4rem] text-center shadow-[0_20px_80px_rgba(255,184,0,0.3)] relative overflow-hidden group">
+        <div className="absolute top-0 left-0 w-full h-full bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+        <h2 className="text-4xl md:text-6xl font-black text-black mb-8 uppercase tracking-tighter relative z-10">Bilim — Bu Kuch!</h2>
+        <p className="text-lg md:text-2xl max-w-4xl mx-auto text-black/70 font-black leading-relaxed mb-12 relative z-10">
           Honey platformasi orqali o'rganish endi shunchaki majburiyat emas, balki aqlli tarzda bog'langan ekotizimning bir qismidir.
         </p>
-        <button className="bg-black text-honey px-12 py-5 rounded-3xl font-black text-lg hover:scale-105 transition-all shadow-2xl uppercase tracking-widest">
-          Kursni Boshlash
+        <button className="bg-black text-honey px-12 md:px-16 py-5 md:py-6 rounded-2xl md:rounded-3xl font-black text-sm md:text-lg hover:scale-105 transition-all shadow-2xl uppercase tracking-[0.2em] relative z-10 border border-white/10">
+          KURSNI BOSHLASH
         </button>
       </div>
     </div>
