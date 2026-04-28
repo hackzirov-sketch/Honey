@@ -144,6 +144,9 @@ const Messenger: React.FC = () => {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const [msgCtxMenu, setMsgCtxMenu] = useState<{ msgId: string; x: number; y: number } | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
   const [forwardMessage, setForwardMessage] = useState<ChatMessage | null>(null);
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [showHamburger, setShowHamburger] = useState(false);
@@ -337,12 +340,12 @@ const Messenger: React.FC = () => {
 
   // ── Close menu on outside click ──
   useEffect(() => {
-    const onClick = () => { setActiveMenu(null); setChatCtxMenu(null); };
-    if (activeMenu || chatCtxMenu) {
+    const onClick = () => { setActiveMenu(null); setChatCtxMenu(null); setMsgCtxMenu(null); };
+    if (activeMenu || chatCtxMenu || msgCtxMenu) {
       document.addEventListener('click', onClick);
       return () => document.removeEventListener('click', onClick);
     }
-  }, [activeMenu, chatCtxMenu]);
+  }, [activeMenu, chatCtxMenu, msgCtxMenu]);
 
   // ── Actions ──
   const handleStartChat = async (targetUserId: number | string) => {
@@ -549,6 +552,32 @@ const Messenger: React.FC = () => {
     return { left: Math.max(8, Math.min(x, maxX)), top: Math.max(8, Math.min(y, maxY)) };
   };
 
+  // Long-press handlers (mobile) — fires after 450ms hold
+  const startLongPress = (e: React.TouchEvent, onFire: (x: number, y: number) => void) => {
+    longPressFired.current = false;
+    const t = e.touches[0];
+    const x = t?.clientX ?? 0;
+    const y = t?.clientY ?? 0;
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => {
+      longPressFired.current = true;
+      try { (navigator as any).vibrate?.(15); } catch { /* */ }
+      onFire(x, y);
+    }, 450);
+  };
+  const cancelLongPress = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  };
+  const consumeLongPressClick = (e: React.MouseEvent | React.TouchEvent) => {
+    if (longPressFired.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      longPressFired.current = false;
+      return true;
+    }
+    return false;
+  };
+
   const clearAIHistory = () => {
     if (window.confirm("AI suhbat tarixini tozalashni xohlaysizmi?")) {
       setAiMessages([]); localStorage.removeItem('honey_ai_chat_history');
@@ -666,7 +695,16 @@ const Messenger: React.FC = () => {
   };
 
   const renderMessageBubble = (msg: ChatMessage, isMine: boolean) => (
-    <div className={`max-w-[85%] md:max-w-[65%] ${settings.compactMode ? 'p-2.5 md:p-3' : 'p-3.5 md:p-4'} rounded-2xl shadow-xl relative ${isMine ? 'message-bubble-user rounded-tr-sm' : 'message-bubble-other rounded-tl-sm'}`}>
+    <div
+      className={`max-w-[85%] md:max-w-[65%] ${settings.compactMode ? 'p-2.5 md:p-3' : 'p-3.5 md:p-4'} rounded-2xl shadow-xl relative cursor-default select-text ${isMine ? 'message-bubble-user rounded-tr-sm' : 'message-bubble-other rounded-tl-sm'}`}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setMsgCtxMenu({ msgId: msg.id, x: e.clientX, y: e.clientY }); }}
+      onTouchStart={(e) => startLongPress(e, (x, y) => setMsgCtxMenu({ msgId: msg.id, x, y }))}
+      onTouchEnd={cancelLongPress}
+      onTouchMove={cancelLongPress}
+      onTouchCancel={cancelLongPress}
+      onClick={(e) => consumeLongPressClick(e)}
+      data-testid={`bubble-message-${msg.id}`}
+    >
       {!isMine && activeChatItem?.is_group && (
         <p className="text-[10px] font-black uppercase text-honey mb-1.5 tracking-widest opacity-80">@{msg.sender.username}</p>
       )}
@@ -686,38 +724,23 @@ const Messenger: React.FC = () => {
         <p className={`${settings.compactMode ? 'text-[12px] md:text-[13px]' : 'text-[13px] md:text-[14px]'} font-medium leading-relaxed text-white/95 whitespace-pre-wrap break-words`}>{msg.content}</p>
       )}
       {renderLinkPreview(msg.link_preview)}
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {(msg.reactions || []).map((r) => {
-          const reacted = (r.users || []).includes(String(user?.id));
-          return (
-            <button
-              key={`${msg.id}-${r.emoji}`}
-              type="button"
-              onClick={() => handleToggleReaction(msg.id, r.emoji, reacted)}
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all ${reacted ? 'bg-honey/20 border-honey text-honey' : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'}`}
-            >
-              {r.emoji} {r.count}
-            </button>
-          );
-        })}
-        <div className="flex items-center gap-1">
-          {REACTION_SET.map((emoji) => {
-            const current = (msg.reactions || []).find((r) => r.emoji === emoji);
-            const reacted = !!current?.users?.includes(String(user?.id));
+      {(msg.reactions && msg.reactions.length > 0) && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {msg.reactions.map((r) => {
+            const reacted = (r.users || []).includes(String(user?.id));
             return (
               <button
-                key={`${msg.id}-pick-${emoji}`}
+                key={`${msg.id}-${r.emoji}`}
                 type="button"
-                onClick={() => handleToggleReaction(msg.id, emoji, reacted)}
-                className="w-6 h-6 rounded-full bg-white/5 hover:bg-white/10 text-[12px]"
-                title={`Reaksiya ${emoji}`}
+                onClick={(e) => { e.stopPropagation(); handleToggleReaction(msg.id, r.emoji, reacted); }}
+                className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all ${reacted ? 'bg-honey/20 border-honey text-honey' : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'}`}
               >
-                {emoji}
+                {r.emoji} {r.count}
               </button>
             );
           })}
         </div>
-      </div>
+      )}
       <div className="flex items-center gap-1.5 mt-2 opacity-50">
         <span className="text-[9px] font-black uppercase text-white tracking-tight">{formatTime(msg.created_at)}</span>
         {msg.edited_at && <span className="text-[8px] font-bold uppercase text-white/60 italic">tahrirlangan</span>}
@@ -745,25 +768,8 @@ const Messenger: React.FC = () => {
             const canEdit = isMine && msg.message_type === 'text';
             const canDelete = isMine || (activeChatItem?.is_group && activeChatItem?.admin === user?.id);
             return (
-              <div key={msg.id} ref={(el) => { messageRefs.current[msg.id] = el; }} className={`flex items-end gap-2 group/msg-row ${isMine ? 'justify-end flex-row-reverse' : 'justify-start'}`}>
+              <div key={msg.id} ref={(el) => { messageRefs.current[msg.id] = el; }} className={`flex items-end gap-2 ${isMine ? 'justify-end flex-row-reverse' : 'justify-start'}`}>
                 {renderMessageBubble(msg, isMine)}
-                <button onClick={() => startReply(msg)} className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all opacity-0 group-hover/msg-row:opacity-100" title="Javob berish" aria-label="Javob berish">
-                  <i className="fas fa-reply text-[10px]"></i>
-                </button>
-                <div className="relative shrink-0 opacity-0 group-hover/msg-row:opacity-100 focus-within:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); setActiveMenu(activeMenu === msg.id ? null : msg.id); }} className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all" data-testid={`button-msg-menu-${msg.id}`}>
-                    <i className="fas fa-ellipsis-v text-[10px]"></i>
-                  </button>
-                  {activeMenu === msg.id && (
-                    <div className={`absolute ${isMine ? 'right-9' : 'left-9'} top-0 w-44 glass-premium rounded-2xl border border-white/10 shadow-2xl py-2 z-[100] animate-scaleIn backdrop-blur-2xl`} onClick={(e) => e.stopPropagation()}>
-                      <button onClick={() => startReply(msg)} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 flex items-center gap-3"><i className="fas fa-reply text-blue-400 text-sm w-4"></i> Javob berish</button>
-                      <button onClick={() => handleCopyMessage(msg.content)} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 flex items-center gap-3"><i className="fas fa-copy text-honey text-sm w-4"></i> Nusxa</button>
-                      <button onClick={() => startForward(msg)} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 flex items-center gap-3"><i className="fas fa-paper-plane text-purple-400 text-sm w-4"></i> Ulashish</button>
-                      {canEdit && <button onClick={() => startEdit(msg)} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 flex items-center gap-3"><i className="fas fa-pen text-emerald-400 text-sm w-4"></i> Tahrirlash</button>}
-                      {canDelete && <button onClick={() => { handleDeleteMessage(msg.id); setActiveMenu(null); }} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-red-400 hover:bg-red-400/10 flex items-center gap-3 border-t border-white/5"><i className="fas fa-trash-alt text-sm w-4"></i> O'chirish</button>}
-                    </div>
-                  )}
-                </div>
               </div>
             );
           })}
@@ -901,10 +907,14 @@ const Messenger: React.FC = () => {
               <div key={chat.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => setActiveChat(id)}
+                onClick={(e) => { if (consumeLongPressClick(e)) return; setActiveChat(id); }}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveChat(id); } }}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setChatCtxMenu({ chatId: id, x: e.clientX, y: e.clientY }); }}
-                className={`group/chatitem relative w-full flex items-center gap-3 px-4 md:px-5 py-3 transition-colors cursor-pointer select-none ${isActive ? 'bg-honey/10 border-l-2 border-honey' : 'hover:bg-white/5 border-l-2 border-transparent'}`}
+                onTouchStart={(e) => startLongPress(e, (x, y) => setChatCtxMenu({ chatId: id, x, y }))}
+                onTouchEnd={cancelLongPress}
+                onTouchMove={cancelLongPress}
+                onTouchCancel={cancelLongPress}
+                className={`relative w-full flex items-center gap-3 px-4 md:px-5 py-3 transition-colors cursor-pointer select-none ${isActive ? 'bg-honey/10 border-l-2 border-honey' : 'hover:bg-white/5 border-l-2 border-transparent'}`}
                 data-testid={`chat-item-${id}`}
               >
                 <div className="relative shrink-0">
@@ -929,19 +939,6 @@ const Messenger: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                {/* 3-dot menu button (Telegram-style) */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                    setChatCtxMenu({ chatId: id, x: rect.right - 200, y: rect.bottom + 4 });
-                  }}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center opacity-0 group-hover/chatitem:opacity-100 focus:opacity-100 transition-opacity md:flex"
-                  aria-label="Chat menyusi"
-                  data-testid={`button-chat-menu-${id}`}
-                >
-                  <i className="fas fa-ellipsis-v text-xs"></i>
-                </button>
               </div>
             );
           })}
@@ -995,6 +992,94 @@ const Messenger: React.FC = () => {
               <i className="fas fa-archive text-red-400 text-[13px] w-5"></i>
               <span>Yashirish</span>
             </button>
+          </div>
+        );
+      })()}
+
+      {/* Message context menu (Telegram-style: reactions row + actions) */}
+      {msgCtxMenu && (() => {
+        const msg = chatMessages.find(m => m.id === msgCtxMenu.msgId);
+        if (!msg) return null;
+        const isMine = msg.sender?.id === user?.id || msg.sender?.username === user?.name;
+        const canEdit = isMine && msg.message_type === 'text';
+        const canDelete = isMine || (activeChatItem?.is_group && activeChatItem?.admin === user?.id);
+        const pos = clampMenuPosition(msgCtxMenu.x, msgCtxMenu.y, 240, 320);
+        return (
+          <div
+            className="fixed z-[200] w-[240px] rounded-xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] animate-scaleIn overflow-hidden"
+            style={{ top: pos.top, left: pos.left, background: 'rgba(20, 28, 45, 0.98)' }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="menu-message-context"
+          >
+            {/* Reactions row */}
+            <div className="flex items-center justify-between px-2 py-2 border-b border-white/10 bg-white/[0.03]">
+              {REACTION_SET.map((emoji) => {
+                const current = (msg.reactions || []).find((r) => r.emoji === emoji);
+                const reacted = !!current?.users?.includes(String(user?.id));
+                return (
+                  <button
+                    key={`ctx-${msg.id}-${emoji}`}
+                    type="button"
+                    onClick={() => { handleToggleReaction(msg.id, emoji, reacted); setMsgCtxMenu(null); }}
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[16px] transition-all hover:scale-125 hover:bg-white/10 ${reacted ? 'bg-honey/20' : ''}`}
+                    title={`Reaksiya ${emoji}`}
+                    data-testid={`reaction-${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Actions */}
+            <div className="py-1.5">
+              <button
+                onClick={() => { startReply(msg); setMsgCtxMenu(null); }}
+                className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-white hover:bg-white/10 flex items-center gap-3 transition-colors"
+                data-testid="menu-item-reply"
+              >
+                <i className="fas fa-reply text-blue-400 text-[13px] w-5"></i>
+                <span>Javob berish</span>
+              </button>
+              <button
+                onClick={() => { handleCopyMessage(msg.content); setMsgCtxMenu(null); }}
+                className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-white hover:bg-white/10 flex items-center gap-3 transition-colors"
+                data-testid="menu-item-copy"
+              >
+                <i className="fas fa-copy text-honey text-[13px] w-5"></i>
+                <span>Nusxa olish</span>
+              </button>
+              <button
+                onClick={() => { startForward(msg); setMsgCtxMenu(null); }}
+                className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-white hover:bg-white/10 flex items-center gap-3 transition-colors"
+                data-testid="menu-item-forward"
+              >
+                <i className="fas fa-paper-plane text-purple-400 text-[13px] w-5"></i>
+                <span>Yuborish</span>
+              </button>
+              {canEdit && (
+                <button
+                  onClick={() => { startEdit(msg); setMsgCtxMenu(null); }}
+                  className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-white hover:bg-white/10 flex items-center gap-3 transition-colors"
+                  data-testid="menu-item-edit"
+                >
+                  <i className="fas fa-pen text-emerald-400 text-[13px] w-5"></i>
+                  <span>Tahrirlash</span>
+                </button>
+              )}
+              {canDelete && (
+                <>
+                  <div className="h-px bg-white/10 my-1"></div>
+                  <button
+                    onClick={() => { handleDeleteMessage(msg.id); setMsgCtxMenu(null); }}
+                    className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
+                    data-testid="menu-item-delete"
+                  >
+                    <i className="fas fa-trash-alt text-red-400 text-[13px] w-5"></i>
+                    <span>O'chirish</span>
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         );
       })()}
