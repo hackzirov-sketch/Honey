@@ -6,8 +6,8 @@ export const config = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT || (process.env.NODE_ENV === "production" ? 10000 : 5000)),
   jwtSecret: process.env.JWT_SECRET || process.env.SECRET_KEY || "honey-local-dev-secret-change-me",
-  accessMinutes: Number(process.env.ACCESS_TOKEN_MINUTES || 60),
-  refreshDays: Number(process.env.REFRESH_TOKEN_DAYS || 1),
+  accessMinutes: Number(process.env.ACCESS_TOKEN_MINUTES || 60 * 24 * 30), // 30 kun
+  refreshDays: Number(process.env.REFRESH_TOKEN_DAYS || 365),               // 1 yil
   databasePath: process.env.SQLITE_PATH || path.join(root, "data", "honey.sqlite"),
   frontendUrl: process.env.FRONTEND_URL || "http://localhost:5173",
   googleClientId: process.env.GOOGLE_CLIENT_ID,

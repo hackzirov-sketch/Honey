@@ -159,6 +159,21 @@ const Messenger: React.FC = () => {
   const [pinnedChats, setPinnedChats] = useState<string[]>(() => lsGet<string[]>('honey:hub:pinned', []));
   const [mutedChats, setMutedChats] = useState<string[]>(() => lsGet<string[]>('honey:hub:muted', []));
   const [readMarkers, setReadMarkers] = useState<Record<string, string>>(() => lsGet<Record<string, string>>('honey:hub:read', {}));
+  const [chatDrafts, setChatDrafts] = useState<Record<string, string>>(() => {
+    const map: Record<string, string> = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        const m = k.match(/^honey:chat:(.+):draft$/);
+        if (m) {
+          const v = localStorage.getItem(k);
+          if (v) map[m[1]] = JSON.parse(v);
+        }
+      }
+    } catch { /* */ }
+    return map;
+  });
   const [chatCtxMenu, setChatCtxMenu] = useState<{ chatId: string; x: number; y: number } | null>(null);
 
   // Cache messages per chat to avoid flicker when switching chats
@@ -305,8 +320,13 @@ const Messenger: React.FC = () => {
   useEffect(() => {
     if (!activeChat || activeChat === 'ai' || editingMsg) return;
     const t = setTimeout(() => {
-      if (input) lsSet(`honey:chat:${activeChat}:draft`, input);
-      else localStorage.removeItem(`honey:chat:${activeChat}:draft`);
+      if (input) {
+        lsSet(`honey:chat:${activeChat}:draft`, input);
+        setChatDrafts(prev => ({ ...prev, [activeChat]: input }));
+      } else {
+        localStorage.removeItem(`honey:chat:${activeChat}:draft`);
+        setChatDrafts(prev => { const n = { ...prev }; delete n[activeChat]; return n; });
+      }
     }, 250);
     return () => clearTimeout(t);
   }, [input, activeChat, editingMsg]);
@@ -932,10 +952,17 @@ const Messenger: React.FC = () => {
                     <span className="text-[9px] text-gray-400 font-bold opacity-60 shrink-0">{chat.last_message?.created_at ? formatTime(chat.last_message.created_at) : ''}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <p className={`text-[11px] font-bold truncate ${unread ? 'text-white/90' : 'text-gray-500'}`}>{chat.last_message?.content || 'Hali xabar yo\'q...'}</p>
+                    {chatDrafts[id] ? (
+                      <p className="text-[11px] font-bold truncate text-white/90">
+                        <span className="text-red-400">Qoralama: </span>
+                        <span className="text-white/70">{chatDrafts[id]}</span>
+                      </p>
+                    ) : (
+                      <p className={`text-[11px] font-bold truncate ${unread ? 'text-white/90' : 'text-gray-500'}`}>{chat.last_message?.content || 'Hali xabar yo\'q...'}</p>
+                    )}
                     <div className="flex items-center gap-1.5 shrink-0">
                       {pinned && <i className="fas fa-thumbtack text-[10px] text-honey rotate-45"></i>}
-                      {unread && !muted && <span className="w-2 h-2 rounded-full bg-honey shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span>}
+                      {unread && !muted && !chatDrafts[id] && <span className="w-2 h-2 rounded-full bg-honey shadow-[0_0_8px_rgba(245,158,11,0.6)]"></span>}
                     </div>
                   </div>
                 </div>
