@@ -255,8 +255,8 @@ html.light .glass {
 
 /* Chat Specific Premium Styles */
 .chat-sidebar-glass {
-  background: rgba(15, 23, 42, 0.6) !important;
-  backdrop-filter: blur(40px) saturate(200%) !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  backdrop-filter: blur(16px) saturate(140%) !important;
   border-right: 1px solid rgba(255, 255, 255, 0.04) !important;
 }
 

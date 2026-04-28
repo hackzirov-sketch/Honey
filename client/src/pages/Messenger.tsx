@@ -158,6 +158,9 @@ const Messenger: React.FC = () => {
   const [readMarkers, setReadMarkers] = useState<Record<string, string>>(() => lsGet<Record<string, string>>('honey:hub:read', {}));
   const [chatCtxMenu, setChatCtxMenu] = useState<{ chatId: string; x: number; y: number } | null>(null);
 
+  // Cache messages per chat to avoid flicker when switching chats
+  const messagesCache = useRef<Record<string, ChatMessage[]>>({});
+
   // Settings
   const [settings, setSettings] = useState<HubSettings>(() => ({ ...DEFAULT_SETTINGS, ...lsGet<Partial<HubSettings>>('honey:hub:settings', {}) }));
 
@@ -184,9 +187,9 @@ const Messenger: React.FC = () => {
     'Authorization': `Bearer ${getAuthToken()}`,
   }), []);
 
-  // ── Fetch chats (deduplicated) ──
+  // ── Fetch chats (deduplicated, only show loading on first load) ──
   const fetchChats = useCallback(async (showLoading = true) => {
-    if (showLoading) setChatsLoading(true);
+    if (showLoading && chats.length === 0) setChatsLoading(true);
     try {
       const [chatsRes, groupsRes] = await Promise.all([
         fetch(`${API_BASE_URL}${API_ENDPOINTS.CHAT.LIST}`, { headers: authHeaders() }),
@@ -212,6 +215,9 @@ const Messenger: React.FC = () => {
   // ── Fetch messages (deduplicated) ──
   const fetchChatMessages = useCallback(async (chatId: string, showLoading = false) => {
     if (chatId === 'ai' || chatId === 'saved') return;
+    // Only show loading spinner if we don't have cached messages
+    const hasCache = (messagesCache.current[chatId]?.length || 0) > 0;
+    if (!hasCache) showLoading = true;
     const chat = chats.find(c => String(c.id) === chatId);
     const endpoint = chat?.is_group
       ? API_ENDPOINTS.CHAT.GROUP_MESSAGES(chatId)
@@ -224,6 +230,7 @@ const Messenger: React.FC = () => {
         const sig = JSON.stringify(data.map(m => [m.id, m.content, m.edited_at]));
         if (sig !== lastMessagesSig.current) {
           lastMessagesSig.current = sig;
+          messagesCache.current[chatId] = data;
           setChatMessages(data);
         }
       }
@@ -238,11 +245,12 @@ const Messenger: React.FC = () => {
     fetchChats(true);
     const cached = localStorage.getItem('honey_ai_chat_history');
     if (cached) { try { setAiMessages(JSON.parse(cached)); } catch { /* */ } }
-    const t = setInterval(() => fetchChats(false), 5000);
+    // Reduced polling: 5s -> 10s (less lag, still feels live)
+    const t = setInterval(() => fetchChats(false), 10000);
     return () => clearInterval(t);
   }, [user, fetchChats]);
 
-  // ── Switch chat: reset messages, restore draft ──
+  // ── Switch chat: restore from cache, restore draft ──
   useEffect(() => {
     if (!activeChat || activeChat === 'ai') {
       setChatMessages([]);
@@ -250,8 +258,17 @@ const Messenger: React.FC = () => {
       return;
     }
     initialScrollDone.current = null;
-    lastMessagesSig.current = '';
-    setChatMessages([]);
+
+    // Restore from cache (no flicker) instead of clearing
+    const cached = messagesCache.current[activeChat];
+    if (cached && cached.length > 0) {
+      setChatMessages(cached);
+      lastMessagesSig.current = JSON.stringify(cached.map(m => [m.id, m.content, m.edited_at]));
+    } else {
+      setChatMessages([]);
+      lastMessagesSig.current = '';
+    }
+
     setReplyTo(null);
     setEditingMsg(null);
     setShowInChatSearch(false);
@@ -265,8 +282,9 @@ const Messenger: React.FC = () => {
     // Mark as read
     setReadMarkers(prev => ({ ...prev, [activeChat]: new Date().toISOString() }));
 
-    if (activeChat !== 'saved') fetchChatMessages(activeChat, true);
-    const t = setInterval(() => fetchChatMessages(activeChat, false), 3000);
+    if (activeChat !== 'saved') fetchChatMessages(activeChat, !cached);
+    // Reduced polling: 3s -> 6s (less lag)
+    const t = setInterval(() => fetchChatMessages(activeChat, false), 6000);
     return () => clearInterval(t);
   }, [activeChat, fetchChatMessages]);
 
@@ -275,7 +293,7 @@ const Messenger: React.FC = () => {
   useEffect(() => {
     if (activeChat === 'saved' && savedChat) {
       fetchChatMessages(String(savedChat.id), true);
-      const t = setInterval(() => fetchChatMessages(String(savedChat.id), false), 3000);
+      const t = setInterval(() => fetchChatMessages(String(savedChat.id), false), 6000);
       return () => clearInterval(t);
     }
   }, [activeChat, savedChat, fetchChatMessages]);
@@ -505,6 +523,30 @@ const Messenger: React.FC = () => {
   const markChatRead = (chatId: string) => {
     setReadMarkers(prev => ({ ...prev, [chatId]: new Date().toISOString() }));
     setChatCtxMenu(null);
+  };
+  const markChatUnread = (chatId: string) => {
+    setReadMarkers(prev => {
+      const next = { ...prev };
+      delete next[chatId];
+      return next;
+    });
+    setChatCtxMenu(null);
+  };
+  const archiveChat = (chatId: string) => {
+    if (window.confirm("Bu chatni ro'yxatdan yashirmoqchimisiz?")) {
+      const hidden = lsGet<string[]>('honey:hub:hidden', []);
+      if (!hidden.includes(chatId)) lsSet('honey:hub:hidden', [...hidden, chatId]);
+      setChats(prev => prev.filter(c => String(c.id) !== chatId));
+      if (activeChat === chatId) setActiveChat(null);
+    }
+    setChatCtxMenu(null);
+  };
+
+  // Position the context menu so it never overflows the viewport
+  const clampMenuPosition = (x: number, y: number, w = 200, h = 220) => {
+    const maxX = (typeof window !== 'undefined' ? window.innerWidth : 1024) - w - 8;
+    const maxY = (typeof window !== 'undefined' ? window.innerHeight : 768) - h - 8;
+    return { left: Math.max(8, Math.min(x, maxX)), top: Math.max(8, Math.min(y, maxY)) };
   };
 
   const clearAIHistory = () => {
@@ -856,10 +898,13 @@ const Messenger: React.FC = () => {
             const unread = isUnread(chat);
             const isActive = activeChat === id;
             return (
-              <button key={chat.id}
+              <div key={chat.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => setActiveChat(id)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveChat(id); } }}
                 onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setChatCtxMenu({ chatId: id, x: e.clientX, y: e.clientY }); }}
-                className={`w-full flex items-center gap-3 px-4 md:px-5 py-3 transition-all ${isActive ? 'bg-honey/10 border-l-2 border-honey' : 'hover:bg-white/5 border-l-2 border-transparent'}`}
+                className={`group/chatitem relative w-full flex items-center gap-3 px-4 md:px-5 py-3 transition-colors cursor-pointer select-none ${isActive ? 'bg-honey/10 border-l-2 border-honey' : 'hover:bg-white/5 border-l-2 border-transparent'}`}
                 data-testid={`chat-item-${id}`}
               >
                 <div className="relative shrink-0">
@@ -884,28 +929,75 @@ const Messenger: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </button>
+                {/* 3-dot menu button (Telegram-style) */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    setChatCtxMenu({ chatId: id, x: rect.right - 200, y: rect.bottom + 4 });
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center opacity-0 group-hover/chatitem:opacity-100 focus:opacity-100 transition-opacity md:flex"
+                  aria-label="Chat menyusi"
+                  data-testid={`button-chat-menu-${id}`}
+                >
+                  <i className="fas fa-ellipsis-v text-xs"></i>
+                </button>
+              </div>
             );
           })}
         </div>
       </aside>
 
-      {/* Chat context menu (right click) */}
-      {chatCtxMenu && (
-        <div className="fixed z-[200] w-48 glass-premium rounded-2xl border border-white/10 shadow-2xl py-2 backdrop-blur-2xl animate-scaleIn"
-             style={{ top: chatCtxMenu.y, left: chatCtxMenu.x }}
-             onClick={(e) => e.stopPropagation()}>
-          <button onClick={() => togglePin(chatCtxMenu.chatId)} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 flex items-center gap-3">
-            <i className="fas fa-thumbtack text-honey text-sm w-4"></i> {pinnedChats.includes(chatCtxMenu.chatId) ? 'Yechish' : 'Pin qilish'}
-          </button>
-          <button onClick={() => toggleMute(chatCtxMenu.chatId)} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 flex items-center gap-3">
-            <i className={`fas ${mutedChats.includes(chatCtxMenu.chatId) ? 'fa-bell' : 'fa-bell-slash'} text-blue-400 text-sm w-4`}></i> {mutedChats.includes(chatCtxMenu.chatId) ? 'Yoqish' : 'Ovozsiz'}
-          </button>
-          <button onClick={() => markChatRead(chatCtxMenu.chatId)} className="w-full px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 flex items-center gap-3">
-            <i className="fas fa-check-double text-emerald-400 text-sm w-4"></i> O'qilgan deb belgilash
-          </button>
-        </div>
-      )}
+      {/* Chat context menu (Telegram-style, position-aware, opaque) */}
+      {chatCtxMenu && (() => {
+        const isUnreadChat = (() => {
+          const c = chats.find(ch => String(ch.id) === chatCtxMenu.chatId);
+          return c ? isUnread(c) : false;
+        })();
+        const pos = clampMenuPosition(chatCtxMenu.x, chatCtxMenu.y, 220, 250);
+        return (
+          <div
+            className="fixed z-[200] w-[220px] rounded-xl border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] py-1.5 animate-scaleIn overflow-hidden"
+            style={{ top: pos.top, left: pos.left, background: 'rgba(20, 28, 45, 0.98)' }}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="menu-chat-context"
+          >
+            <button
+              onClick={() => togglePin(chatCtxMenu.chatId)}
+              className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-white hover:bg-white/10 flex items-center gap-3 transition-colors"
+              data-testid="menu-item-pin"
+            >
+              <i className={`fas fa-thumbtack text-honey text-[13px] w-5 ${pinnedChats.includes(chatCtxMenu.chatId) ? 'rotate-45' : ''}`}></i>
+              <span>{pinnedChats.includes(chatCtxMenu.chatId) ? 'Pin yechish' : 'Pin qilish'}</span>
+            </button>
+            <button
+              onClick={() => toggleMute(chatCtxMenu.chatId)}
+              className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-white hover:bg-white/10 flex items-center gap-3 transition-colors"
+              data-testid="menu-item-mute"
+            >
+              <i className={`fas ${mutedChats.includes(chatCtxMenu.chatId) ? 'fa-bell' : 'fa-bell-slash'} text-blue-400 text-[13px] w-5`}></i>
+              <span>{mutedChats.includes(chatCtxMenu.chatId) ? 'Bildirishnomani yoqish' : 'Ovozsiz qilish'}</span>
+            </button>
+            <button
+              onClick={() => isUnreadChat ? markChatRead(chatCtxMenu.chatId) : markChatUnread(chatCtxMenu.chatId)}
+              className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-white hover:bg-white/10 flex items-center gap-3 transition-colors"
+              data-testid="menu-item-read"
+            >
+              <i className={`fas ${isUnreadChat ? 'fa-check-double' : 'fa-envelope'} text-emerald-400 text-[13px] w-5`}></i>
+              <span>{isUnreadChat ? "O'qilgan deb belgilash" : "O'qilmagan deb belgilash"}</span>
+            </button>
+            <div className="h-px bg-white/10 my-1"></div>
+            <button
+              onClick={() => archiveChat(chatCtxMenu.chatId)}
+              className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-red-400 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
+              data-testid="menu-item-archive"
+            >
+              <i className="fas fa-archive text-red-400 text-[13px] w-5"></i>
+              <span>Yashirish</span>
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ============= CHAT AREA ============= */}
       <main className={`flex-1 flex flex-col relative transition-all duration-300 ${!activeChat ? 'max-md:hidden' : 'max-md:block'}`}>
