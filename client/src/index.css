@@ -18,17 +18,17 @@ html.light {
 }
 
 html.dark .glass-premium {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(10, 10, 10, 0.65);
   backdrop-filter: blur(25px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
 }
 
 html.light .glass-premium {
-  background: rgba(255, 255, 255, 0.45);
-  backdrop-filter: blur(25px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 15px 45px 0 rgba(0, 0, 0, 0.12), 0 5px 15px rgba(0, 0, 0, 0.05);
 }
 
 html.light .honey-text-gradient {
@@ -79,10 +79,10 @@ body::before {
 }
 
 .glass-premium {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(10, 10, 10, 0.65);
   backdrop-filter: blur(25px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
 }
 
 .mirror-mode {

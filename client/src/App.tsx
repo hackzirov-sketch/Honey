@@ -101,20 +101,10 @@ const VideoBackground = ({ theme }: { theme: 'dark' | 'light' }) => {
         />
       )}
 
-      {/* Gradient overlay for depth */}
-      <div className={`absolute inset-0 transition-opacity duration-[2000ms] ease-in-out ${theme === 'dark'
-          ? 'opacity-100'
-          : 'opacity-0'
-        }`} style={{
-        background: 'linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.15) 100%)'
-      }}></div>
-
-      <div className={`absolute inset-0 transition-opacity duration-[2000ms] ease-in-out ${theme === 'light'
-          ? 'opacity-100'
-          : 'opacity-0'
-        }`} style={{
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 40%, rgba(255,255,255,0.1) 100%)'
-      }}></div>
+      {/* Dark overlay */}
+      <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`} style={{ background: 'rgba(0,0,0,0.4)' }}></div>
+      {/* Light overlay */}
+      <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'light' ? 'opacity-100' : 'opacity-0'}`} style={{ background: 'rgba(255,255,255,0.1)' }}></div>
 
       {/* Subtle honey-tinted vignette */}
       <div className="absolute inset-0 pointer-events-none" style={{
