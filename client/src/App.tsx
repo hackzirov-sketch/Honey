@@ -47,10 +47,6 @@ const ThemeToggle = ({ theme, setTheme }: { theme: 'dark' | 'light', setTheme: (
 const VideoBackground = ({ theme }: { theme: 'dark' | 'light' }) => {
   const darkVideoRef = useRef<HTMLVideoElement>(null);
   const lightVideoRef = useRef<HTMLVideoElement>(null);
-  const [darkLoaded, setDarkLoaded] = useState(false);
-  const [lightLoaded, setLightLoaded] = useState(false);
-  const [darkError, setDarkError] = useState(false);
-  const [lightError, setLightError] = useState(false);
 
   useEffect(() => {
     if (darkVideoRef.current) darkVideoRef.current.play().catch(() => { });
@@ -59,59 +55,25 @@ const VideoBackground = ({ theme }: { theme: 'dark' | 'light' }) => {
 
   return (
     <div className="fixed inset-0 z-[-1] overflow-hidden">
-      {/* Fallback animated gradient (always visible, videos layer on top) */}
-      <div className={`absolute inset-0 transition-opacity duration-[2000ms] ${theme === 'dark'
-          ? 'bg-gradient-to-br from-[#0a0a1a] via-[#1a0a2e] to-[#0d0d1a]'
-          : 'bg-gradient-to-br from-[#fef9e7] via-[#fdf2d0] to-[#f5e6c8]'
-        }`}>
-        <div className="absolute inset-0 animate-pulse opacity-30" style={{
-          background: theme === 'dark'
-            ? 'radial-gradient(ellipse at 30% 50%, rgba(255,184,0,0.08) 0%, transparent 60%), radial-gradient(ellipse at 70% 30%, rgba(0,150,255,0.06) 0%, transparent 50%)'
-            : 'radial-gradient(ellipse at 30% 50%, rgba(255,184,0,0.15) 0%, transparent 60%), radial-gradient(ellipse at 70% 30%, rgba(255,138,0,0.1) 0%, transparent 50%)'
-        }}></div>
-      </div>
-
-      {/* Dark video */}
-      {!darkError && (
-        <video
-          ref={darkVideoRef}
-          className={`absolute top-1/2 left-1/2 min-w-full min-h-full w-auto h-auto -translate-x-1/2 -translate-y-1/2 object-cover transition-all duration-[1500ms] ease-in-out ${theme === 'dark' && darkLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
-          src="/background-dark.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          onLoadedData={() => setDarkLoaded(true)}
-          onError={() => setDarkError(true)}
-        />
-      )}
-
-      {/* Light video */}
-      {!lightError && (
-        <video
-          ref={lightVideoRef}
-          className={`absolute top-1/2 left-1/2 min-w-full min-h-full w-auto h-auto -translate-x-1/2 -translate-y-1/2 object-cover transition-all duration-[1500ms] ease-in-out ${theme === 'light' && lightLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105'}`}
-          src="/background-light.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          onLoadedData={() => setLightLoaded(true)}
-          onError={() => setLightError(true)}
-        />
-      )}
-
-      {/* Dark overlay */}
-      <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`} style={{ background: 'rgba(0,0,0,0.4)' }}></div>
-      {/* Light overlay */}
-      <div className={`absolute inset-0 transition-opacity duration-1000 ${theme === 'light' ? 'opacity-100' : 'opacity-0'}`} style={{ background: 'rgba(255,255,255,0.1)' }}></div>
-
-      {/* Subtle honey-tinted vignette */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.2) 100%)',
-        opacity: theme === 'dark' ? 0.5 : 0.15,
-        transition: 'opacity 2s ease-in-out'
-      }}></div>
+      <video
+        ref={darkVideoRef}
+        className={`absolute top-1/2 left-1/2 min-w-full min-h-full w-auto h-auto -translate-x-1/2 -translate-y-1/2 object-cover transition-opacity duration-1000 ${theme === 'dark' ? 'opacity-100' : 'opacity-0'}`}
+        src="/background-dark.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+      />
+      <video
+        ref={lightVideoRef}
+        className={`absolute top-1/2 left-1/2 min-w-full min-h-full w-auto h-auto -translate-x-1/2 -translate-y-1/2 object-cover transition-opacity duration-1000 ${theme === 'light' ? 'opacity-100' : 'opacity-0'}`}
+        src="/background-light.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+      />
+      <div className={`absolute inset-0 transition-colors duration-1000 ${theme === 'dark' ? 'bg-black/40' : 'bg-white/10'}`}></div>
     </div>
   );
 };
