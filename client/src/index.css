@@ -53,8 +53,6 @@ html.light body {
   }
 }
 
-/* Duplicates removed — see html.light .glass-premium above */
-
 .light .glass-premium {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(40px) saturate(200%);
