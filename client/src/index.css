@@ -18,17 +18,17 @@ html.light {
 }
 
 html.dark .glass-premium {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(25px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.15);
   box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
 }
 
 html.light .glass-premium {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(25px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(25px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.1);
 }
 
 html.light .honey-text-gradient {
@@ -53,51 +53,7 @@ html.light body {
   }
 }
 
-.light .glass-premium {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(40px) saturate(200%);
-  box-shadow: 0 15px 45px 0 rgba(0, 0, 0, 0.12), 0 5px 15px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-}
-
-.light .honey-text-gradient {
-  background: linear-gradient(135deg, #333 30%, #FFB800 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
-
-#bg-video-container {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 1s ease-in-out;
-  pointer-events: none;
-  overflow: hidden;
-  background: #f0f0f0;
-  will-change: opacity;
-}
-
-html.light #bg-video-container {
-  opacity: 1;
-}
-
-#bg-video {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  min-width: 100%;
-  min-height: 100%;
-  width: auto;
-  height: auto;
-  transform: translate(-50%, -50%);
-  object-fit: cover;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
+/* Duplicates removed — see html.light .glass-premium above */
 
 /* Premium Noise Texture Overlay */
 body::before {
@@ -123,10 +79,10 @@ body::before {
 }
 
 .glass-premium {
-  background: rgba(10, 10, 10, 0.65);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(25px) saturate(180%);
-  border: 1px solid var(--border-glass);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.4);
 }
 
 .mirror-mode {

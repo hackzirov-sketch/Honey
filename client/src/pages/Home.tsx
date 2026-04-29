@@ -25,13 +25,13 @@ const Home: React.FC<{ onStart: () => void }> = ({ onStart }) => {
           WELCOME TO <br /> <span className="mt-2 md:mt-4 block">HONEY ECOSYSTEM</span>
         </h1>
 
-        <p className="text-base sm:text-xl lg:text-2xl text-gray-200 max-w-2xl leading-relaxed font-medium mb-12 md:mb-16 opacity-90 px-4">
+        <p className="text-base sm:text-xl lg:text-2xl dark:text-gray-200 light:text-gray-600 max-w-2xl leading-relaxed font-medium mb-12 md:mb-16 opacity-90 px-4">
           Cheksiz imkoniyatlar, aqlli filtrlar va premium tajriba. <br className="hidden sm:block" /> Sizning shaxsiy raqamli saltanatingiz.
         </p>
 
         <div className="flex flex-col sm:flex-row justify-center gap-4 md:gap-6 w-full sm:w-auto px-6 sm:px-0">
            <Link to="/auth" className="bg-honey text-white px-8 md:px-16 py-4 md:py-6 text-[10px] md:text-xs font-bold tracking-[0.2em] rounded-xl md:rounded-2xl hover:scale-105 transition-all shadow-lg shadow-honey/20 uppercase border border-white/20">HOZIROQ BOSHLASH</Link>
-           <Link to="/security" className="glass-premium px-8 md:px-12 py-4 md:py-6 text-[10px] md:text-xs font-bold rounded-xl md:rounded-2xl hover:scale-105 transition-all flex items-center justify-center gap-3 md:gap-4 text-white">
+           <Link to="/security" className="glass-premium px-8 md:px-12 py-4 md:py-6 text-[10px] md:text-xs font-bold rounded-xl md:rounded-2xl hover:scale-105 transition-all flex items-center justify-center gap-3 md:gap-4 dark:text-white light:text-gray-800">
              EKOTIZIMNI O'RGANING <i className="fas fa-arrow-right-long text-honey"></i>
            </Link>
         </div>
@@ -46,8 +46,8 @@ const Home: React.FC<{ onStart: () => void }> = ({ onStart }) => {
                  </div>
                  <i className="fas fa-arrow-up-right text-white/20 group-hover:text-honey transition-colors"></i>
               </div>
-              <h3 className="text-2xl md:text-3xl font-black text-white mb-3 md:mb-4 uppercase tracking-tighter">{item.title}</h3>
-              <p className="text-gray-300 text-base md:text-lg font-bold leading-relaxed max-w-full md:max-w-[80%]">{item.desc}</p>
+              <h3 className="text-2xl md:text-3xl font-black dark:text-white light:text-gray-900 mb-3 md:mb-4 uppercase tracking-tighter">{item.title}</h3>
+              <p className="dark:text-gray-300 light:text-gray-600 text-base md:text-lg font-bold leading-relaxed max-w-full md:max-w-[80%]">{item.desc}</p>
               
               {/* Subtle background glow */}
               <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-white/[0.02] blur-3xl rounded-full"></div>
