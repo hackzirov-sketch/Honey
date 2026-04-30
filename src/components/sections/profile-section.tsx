@@ -265,6 +265,7 @@ function ProfileTabs({
   const tabs = [
     { id: 'posts', label: 'Posts', icon: FileText },
     { id: 'media', label: 'Media', icon: ImageIcon },
+    { id: 'likes', label: 'Likes', icon: Heart },
     { id: 'files', label: 'Files', icon: Film },
     { id: 'about', label: 'About', icon: Info },
   ]
@@ -322,6 +323,7 @@ function TabContent({
         >
           {activeTab === 'posts' && <PostsTab user={user} />}
           {activeTab === 'media' && <MediaTab user={user} />}
+          {activeTab === 'likes' && <LikesTab user={user} />}
           {activeTab === 'files' && <FilesTab />}
           {activeTab === 'about' && <AboutTab user={user} onOpenSettings={onOpenSettings} />}
         </motion.div>
@@ -345,27 +347,80 @@ function PostsTab({ user }: { user: User }) {
     )
   }
 
+  const gradients = [
+    'from-honey/15 via-amber/10 to-gold/5',
+    'from-rose-500/15 via-orange-500/10 to-amber/5',
+    'from-violet-500/15 via-purple-500/10 to-honey/5',
+    'from-emerald-500/15 via-teal-500/10 to-cyan/5',
+    'from-sky-500/15 via-blue-500/10 to-indigo/5',
+    'from-pink-500/15 via-rose-500/10 to-red-500/5',
+  ]
+
   return (
-    <div className="grid grid-cols-3 gap-1">
-      {userPosts.map((post) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {userPosts.map((post, i) => (
         <motion.div
           key={post.id}
-          whileHover={{ scale: 1.02 }}
-          className="aspect-square rounded-lg overflow-hidden bg-card border border-border relative group cursor-pointer"
+          whileHover={{ scale: 1.02, y: -2 }}
+          className="aspect-square rounded-xl overflow-hidden glass-card gradient-border relative group cursor-pointer transition-all"
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-honey/10 to-amber/5 flex items-center justify-center">
-            <FileText className="w-8 h-8 text-honey/30" />
+          <div className={`absolute inset-0 bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center`}>
+            <FileText className="w-10 h-10 text-foreground/20" />
           </div>
-          <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-            <p className="text-[10px] text-white truncate">{post.content.slice(0, 50)}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] text-white/70 flex items-center gap-0.5">
-                <Heart className="w-2.5 h-2.5" />{formatNumber(post.likes)}
-              </span>
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <div className="flex items-center gap-3 text-white text-xs font-semibold">
+              <span className="flex items-center gap-1"><Heart className="w-4 h-4 fill-white" />{formatNumber(post.likes)}</span>
+              <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" />{post.commentCount}</span>
             </div>
+          </div>
+          {/* Bottom content peek */}
+          <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/50 to-transparent">
+            <p className="text-[10px] text-white/80 line-clamp-2 leading-tight">{post.content.slice(0, 80)}</p>
           </div>
         </motion.div>
       ))}
+    </div>
+  )
+}
+
+// ============================================
+// Likes Tab
+// ============================================
+function LikesTab({ user }: { user: User }) {
+  const likedPosts = mockPosts.filter((p) => p.isLiked)
+  const gradients = [
+    'from-honey/15 via-amber/10 to-gold/5',
+    'from-rose-500/15 via-orange-500/10 to-amber/5',
+    'from-violet-500/15 via-purple-500/10 to-honey/5',
+    'from-emerald-500/15 via-teal-500/10 to-cyan/5',
+    'from-sky-500/15 via-blue-500/10 to-indigo/5',
+  ]
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      {likedPosts.map((post, i) => {
+        const author = mockUsers.find((u) => u.id === post.authorId)
+        return (
+          <motion.div
+            key={post.id}
+            whileHover={{ scale: 1.02, y: -2 }}
+            className="aspect-square rounded-xl overflow-hidden glass-card gradient-border relative group cursor-pointer transition-all"
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br ${gradients[i % gradients.length]} flex items-center justify-center`}>
+              <Heart className="w-10 h-10 text-red-400/40" />
+            </div>
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <div className="text-white text-xs font-semibold">
+                {formatNumber(post.likes)} likes
+              </div>
+            </div>
+            <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/50 to-transparent">
+              {author && <p className="text-[10px] text-white/80">{author.displayName}</p>}
+            </div>
+          </motion.div>
+        )
+      })}
     </div>
   )
 }
