@@ -209,7 +209,7 @@ export default function FeedSection() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setShowCreatePost(true)}
-        className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-30 w-14 h-14 bg-honey rounded-2xl shadow-honey-lg flex items-center justify-center text-background"
+        className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-30 w-14 h-14 rounded-full ios-pill-filled flex items-center justify-center shadow-honey-lg"
       >
         <Plus className="w-6 h-6" />
       </motion.button>
@@ -566,7 +566,7 @@ function PostCard({ post, index }: { post: Post; index: number }) {
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.05 + index * 0.05 }}
-      className="glass-card rounded-2xl overflow-hidden"
+      className="ios-widget overflow-hidden"
     >
       {/* Post Header */}
       <div className="flex items-center justify-between p-3 pb-2">

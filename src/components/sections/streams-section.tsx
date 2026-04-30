@@ -328,8 +328,8 @@ export default function StreamsSection() {
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all',
                 isActive
-                  ? 'bg-honey text-background shadow-honey shadow-[0_0_12px_rgba(255,184,0,0.25)]'
-                  : 'glass-card text-muted-foreground hover:text-foreground hover:bg-honey/5'
+                  ? 'ios-pill-filled'
+                  : 'ios-pill text-muted-foreground'
               )}
             >
               <Icon className="w-3 h-3" />
@@ -376,7 +376,7 @@ export default function StreamsSection() {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: idx * 0.06 }}
                       whileHover={{ scale: 1.03 }}
-                      className="shrink-0 w-56 glass-card rounded-xl overflow-hidden cursor-pointer"
+                      className="shrink-0 w-56 ios-widget ios-widget-sm overflow-hidden cursor-pointer"
                       onClick={() => setSelectedStream(stream)}
                     >
                       <div className={cn('relative aspect-video flex items-center justify-center', `bg-gradient-to-br ${getGradient(stream.id)}`)}>
@@ -525,7 +525,7 @@ function VideoCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
-      className="glass-card gradient-border rounded-xl overflow-hidden cursor-pointer group transition-all hover:shadow-honey hover-lift"
+      className="ios-widget overflow-hidden cursor-pointer group transition-all hover:shadow-honey hover-lift"
     >
       {/* Thumbnail */}
       <div className={cn('relative aspect-video flex items-center justify-center overflow-hidden', `bg-gradient-to-br ${getGradient(id)}`)}>

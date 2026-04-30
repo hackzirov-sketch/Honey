@@ -124,7 +124,7 @@ function MobileBottomNav({ onNotifications }: { onNotifications: () => void }) {
   const { activeTab, setActiveTab, unreadCount } = useAppStore()
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass-premium">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden ios-frosted-bar">
       <div className="flex items-center justify-around px-0.5 py-1">
         {mainNavItems.map((item) => {
           const isActive = activeTab === item.id
@@ -187,7 +187,7 @@ function DesktopSidebar({ onNotifications, notificationsOpen }: {
   const { activeTab, setActiveTab, theme, toggleTheme, unreadCount } = useAppStore()
 
   return (
-    <aside className="hidden md:flex flex-col w-64 lg:w-72 h-screen fixed left-0 top-0 glass-premium border-r border-border z-40">
+    <aside className="hidden md:flex flex-col w-64 lg:w-72 h-screen fixed left-0 top-0 ios-frosted-bar z-40">
       {/* Logo */}
       <div className="p-5 pb-3">
         <HoneyLogo size="lg" />
@@ -377,7 +377,7 @@ export default function AppShell() {
           : 'md:ml-64 lg:ml-72'
       )}>
         {/* Mobile Header */}
-        <header className="sticky top-0 z-30 md:hidden glass-premium border-b border-border">
+        <header className="sticky top-0 z-30 md:hidden ios-frosted-bar">
           <div className="flex items-center justify-between px-4 py-3">
             <HoneyLogo size="sm" animated={false} />
             <div className="flex items-center gap-2">
@@ -410,7 +410,7 @@ export default function AppShell() {
 
         {/* Desktop top bar with notifications for non-hub/meet sections */}
         {(activeTab !== 'hub' && activeTab !== 'meet') && (
-          <header className="hidden md:flex sticky top-0 z-30 items-center justify-between px-6 py-3 border-b border-border">
+          <header className="hidden md:flex sticky top-0 z-30 items-center justify-between px-6 py-3 ios-frosted-bar">
             <h2 className="text-lg font-bold capitalize">{activeTab}</h2>
             <motion.button
               whileTap={{ scale: 0.95 }}

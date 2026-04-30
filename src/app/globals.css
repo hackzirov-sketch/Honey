@@ -706,3 +706,243 @@ body {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
   pointer-events: none;
 }
+
+/* ============================================
+   iOS 17 Premium Widget Styles
+   ============================================ */
+
+/* Widget container - iOS 17 large widget style */
+.ios-widget {
+  background: rgba(28, 25, 23, 0.55);
+  backdrop-filter: blur(40px) saturate(200%);
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  position: relative;
+}
+
+:root:not(.dark) .ios-widget {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.ios-widget-sm {
+  border-radius: 16px;
+}
+
+.ios-widget::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+  pointer-events: none;
+  border-radius: 22px 22px 0 0;
+}
+
+/* iOS 17 Activity Ring */
+@keyframes ring-fill {
+  from { stroke-dashoffset: 283; }
+}
+
+.activity-ring-track {
+  stroke: rgba(255, 184, 0, 0.12);
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+
+.activity-ring-progress {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 283;
+  animation: ring-fill 1.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+  filter: drop-shadow(0 0 6px var(--ring-color, rgba(255, 184, 0, 0.4)));
+}
+
+/* iOS 17 bounce animation */
+@keyframes ios-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+
+.animate-ios-bounce {
+  animation: ios-bounce 2s ease-in-out infinite;
+}
+
+/* iOS 17 subtle shimmer on widgets */
+@keyframes ios-shimmer {
+  0% { transform: translateX(-100%) skewX(-15deg); }
+  100% { transform: translateX(200%) skewX(-15deg); }
+}
+
+.ios-widget-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.ios-widget-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.03), transparent);
+  animation: ios-shimmer 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* iOS 17 pill button */
+.ios-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  background: rgba(255, 184, 0, 0.12);
+  color: #FFB800;
+  border: 1px solid rgba(255, 184, 0, 0.15);
+  transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.ios-pill:hover {
+  background: rgba(255, 184, 0, 0.2);
+  border-color: rgba(255, 184, 0, 0.3);
+  transform: scale(1.02);
+}
+
+.ios-pill:active {
+  transform: scale(0.97);
+}
+
+.ios-pill-filled {
+  background: #FFB800;
+  color: #1C1917;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(255, 184, 0, 0.3);
+}
+
+.ios-pill-filled:hover {
+  background: #FFCF4A;
+  box-shadow: 0 4px 16px rgba(255, 184, 0, 0.4);
+}
+
+/* iOS 17 SF Symbol-style icon container */
+.ios-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(255, 184, 0, 0.15), rgba(255, 184, 0, 0.05));
+  border: 1px solid rgba(255, 184, 0, 0.1);
+}
+
+/* iOS 17 section header */
+.ios-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+  margin-bottom: 12px;
+}
+
+.ios-section-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #A8A29E;
+}
+
+/* iOS 17 stat card */
+.ios-stat-card {
+  background: rgba(28, 25, 23, 0.4);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.ios-stat-card:hover {
+  background: rgba(28, 25, 23, 0.5);
+  border-color: rgba(255, 184, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+/* iOS 17 gradient mesh backgrounds for cards */
+.ios-gradient-mesh {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(255, 184, 0, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(255, 215, 0, 0.04) 0%, transparent 50%);
+}
+
+/* iOS 17 frosted glass top bar */
+.ios-frosted-bar {
+  background: rgba(12, 10, 9, 0.72);
+  backdrop-filter: blur(50px) saturate(200%);
+  -webkit-backdrop-filter: blur(50px) saturate(200%);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Smooth spring transitions */
+.transition-ios {
+  transition: all 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+/* iOS 17 notification badge */
+.ios-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 100px;
+  background: #FF3B30;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(255, 59, 48, 0.4);
+}
+
+/* iOS 17 live indicator */
+@keyframes ios-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.ios-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FF3B30;
+  animation: ios-live-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 6px rgba(255, 59, 48, 0.6);
+}
+
+/* Hide scrollbar utility */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

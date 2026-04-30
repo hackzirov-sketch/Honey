@@ -112,7 +112,7 @@ export default function ExploreSection() {
                       key={user.id}
                       whileHover={{ scale: 1.01 }}
                       onClick={() => addToRecent(query)}
-                      className="flex items-center gap-3 p-3 glass-card rounded-2xl cursor-pointer"
+                      className="flex items-center gap-3 p-3 ios-widget ios-widget-sm cursor-pointer"
                     >
                       <img src={generateAvatar(user.name)} alt="" className="w-10 h-10 rounded-full" />
                       <div className="flex-1 min-w-0">
@@ -131,7 +131,7 @@ export default function ExploreSection() {
                       key={post.id}
                       whileHover={{ scale: 1.01 }}
                       onClick={() => addToRecent(query)}
-                      className="flex items-center gap-3 p-3 glass-card rounded-2xl cursor-pointer"
+                      className="flex items-center gap-3 p-3 ios-widget ios-widget-sm cursor-pointer"
                     >
                       <img src={generateAvatar(post.user.name)} alt="" className="w-10 h-10 rounded-full" />
                       <div className="flex-1 min-w-0">
@@ -150,7 +150,7 @@ export default function ExploreSection() {
                       key={video.id}
                       whileHover={{ scale: 1.01 }}
                       onClick={() => addToRecent(query)}
-                      className="flex items-center gap-3 p-3 glass-card rounded-2xl cursor-pointer"
+                      className="flex items-center gap-3 p-3 ios-widget ios-widget-sm cursor-pointer"
                     >
                       <div className="w-16 h-10 rounded-lg bg-gradient-to-br from-honey/30 to-amber-900/30 flex items-center justify-center shrink-0">
                         <Play className="w-4 h-4 text-honey" />
@@ -168,7 +168,7 @@ export default function ExploreSection() {
                       key={stream.id}
                       whileHover={{ scale: 1.01 }}
                       onClick={() => addToRecent(query)}
-                      className="flex items-center gap-3 p-3 glass-card rounded-2xl cursor-pointer"
+                      className="flex items-center gap-3 p-3 ios-widget ios-widget-sm cursor-pointer"
                     >
                       <div className="w-16 h-10 rounded-lg bg-gradient-to-br from-red-500/30 to-red-900/30 flex items-center justify-center shrink-0">
                         <Radio className="w-4 h-4 text-red-400" />
@@ -231,7 +231,7 @@ export default function ExploreSection() {
                     key={term}
                     whileTap={{ scale: 0.98 }}
                     onClick={() => setQuery(term)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 glass-card rounded-xl hover:bg-accent/30 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 ios-stat-card transition-ios text-left"
                   >
                     <span className="text-xs font-bold text-honey w-5">{i + 1}</span>
                     <span className="text-sm flex-1">{term}</span>
@@ -273,7 +273,7 @@ export default function ExploreSection() {
                     <motion.div
                       key={stream.id}
                       whileHover={{ scale: 1.03 }}
-                      className="min-w-[200px] w-[200px] glass-card rounded-2xl overflow-hidden cursor-pointer"
+                      className="min-w-[200px] w-[200px] ios-widget ios-widget-sm overflow-hidden cursor-pointer"
                     >
                       <div className="h-24 bg-gradient-to-br from-red-500/20 to-red-900/20 flex items-center justify-center relative">
                         <Play className="w-8 h-8 text-white/80" />
