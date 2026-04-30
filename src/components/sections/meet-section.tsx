@@ -84,6 +84,16 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import {
+  participantJoin,
+  buttonHover,
+  buttonGlow,
+  fabVariants,
+  glassCardHover,
+  scaleIn,
+  springPresets,
+  fadeInScale,
+} from '@/lib/motion'
 
 // ============================================
 // Types & Constants
@@ -240,11 +250,22 @@ function ParticipantTile({
       className={cn(
         'relative rounded-xl overflow-hidden bg-warm-gray group',
         sizeClasses[size],
-        isActiveSpeaker && 'ring-2 ring-honey shadow-honey-glow'
+        isActiveSpeaker && 'ring-2 ring-honey shadow-honey-glow gradient-border'
       )}
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3 }}
+      initial={{ opacity: 0, scale: 0.7 }}
+      animate={isActiveSpeaker ? {
+        opacity: 1,
+        scale: 1,
+        boxShadow: [
+          '0 0 0px rgba(255, 184, 0, 0.15)',
+          '0 0 20px rgba(255, 184, 0, 0.35)',
+          '0 0 0px rgba(255, 184, 0, 0.15)',
+        ],
+      } : { opacity: 1, scale: 1 }}
+      transition={isActiveSpeaker ? {
+        duration: 0.4,
+        boxShadow: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+      } : { duration: 0.4 }}
     >
       {/* Video / Avatar */}
       {participant.isVideoOn ? (
@@ -273,12 +294,9 @@ function ParticipantTile({
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {participant.isHandRaised && (
-              <motion.div
-                animate={{ y: [0, -3, 0] }}
-                transition={{ repeat: Infinity, duration: 0.8 }}
-              >
+              <div className="animate-hand-wave">
                 <Hand className="w-3 h-3 text-honey" />
-              </motion.div>
+              </div>
             )}
             {participant.isMuted && <MicOff className="w-3 h-3 text-red-400" />}
             {!participant.isMuted && size !== 'small' && <NetworkQualityDots quality={participant.networkQuality} />}
@@ -301,10 +319,14 @@ function ParticipantTile({
 function FloatingReaction({ emoji }: { emoji: string }) {
   return (
     <motion.div
-      className="absolute bottom-24 left-1/2 pointer-events-none text-3xl z-50"
-      initial={{ opacity: 1, y: 0, x: '-50%', scale: 0.5 }}
+      className="absolute bottom-24 left-1/2 pointer-events-none text-4xl z-50 drop-shadow-[0_0_10px_rgba(255,184,0,0.25)]"
+      initial={{ opacity: 1, y: 0, x: '-50%', scale: 0.3 }}
       animate={{ opacity: 0, y: -200, x: `${(Math.random() - 0.5) * 100}px`, scale: 1.2 }}
-      transition={{ duration: 2, ease: 'easeOut' }}
+      transition={{ 
+        duration: 2, 
+        ease: 'easeOut',
+        scale: { type: 'spring', stiffness: 500, damping: 12 },
+      }}
     >
       {emoji}
     </motion.div>
@@ -356,7 +378,7 @@ function LobbyScreen({ onJoin, onCreate }: { onJoin: () => void; onCreate: () =>
         </div>
 
         {/* Camera Preview */}
-        <div className="glass-premium rounded-2xl overflow-hidden">
+        <div className="glass-premium rounded-2xl overflow-hidden animate-float-subtle">
           <div className="relative aspect-video bg-warm-gray flex items-center justify-center">
             {cameraOn ? (
               <div className="absolute inset-0 bg-gradient-to-br from-warm-gray to-stone-800">
@@ -481,7 +503,7 @@ function LobbyScreen({ onJoin, onCreate }: { onJoin: () => void; onCreate: () =>
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              {...buttonGlow}
               onClick={onCreate}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-honey text-background rounded-xl text-sm font-semibold hover:bg-honey-light transition-colors shadow-honey"
             >
@@ -1055,9 +1077,9 @@ function MeetingRoom({
                               {p.role === 'host' && <Crown className="w-3 h-3 text-honey shrink-0" />}
                               {p.role === 'co-host' && <Shield className="w-3 h-3 text-honey/70 shrink-0" />}
                               {p.isHandRaised && (
-                                <motion.div animate={{ y: [0, -2, 0] }} transition={{ repeat: Infinity, duration: 0.8 }}>
+                                <div className="animate-hand-wave">
                                   <Hand className="w-3 h-3 text-honey shrink-0" />
-                                </motion.div>
+                                </div>
                               )}
                             </div>
                             <span className="text-[10px] text-muted-foreground capitalize">{p.role === 'co-host' ? 'Co-host' : p.role}</span>
@@ -1128,9 +1150,9 @@ function MeetingRoom({
                   whileTap={{ scale: 0.9 }}
                   onClick={toggleMic}
                   className={cn(
-                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all',
+                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover-lift hover-glow-border',
                     micOn
-                      ? 'bg-foreground/10 text-foreground hover:bg-foreground/20'
+                      ? 'bg-foreground/10 text-foreground hover:bg-foreground/20 animate-mic-glow'
                       : 'bg-red-500 text-white hover:bg-red-600'
                   )}
                 >
@@ -1159,7 +1181,7 @@ function MeetingRoom({
                   whileTap={{ scale: 0.9 }}
                   onClick={toggleCamera}
                   className={cn(
-                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all',
+                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover-lift hover-glow-border',
                     cameraOn
                       ? 'bg-foreground/10 text-foreground hover:bg-foreground/20'
                       : 'bg-red-500 text-white hover:bg-red-600'
@@ -1190,9 +1212,9 @@ function MeetingRoom({
                   whileTap={{ scale: 0.9 }}
                   onClick={toggleScreenShare}
                   className={cn(
-                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all',
+                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover-lift hover-glow-border',
                     isScreenSharing
-                      ? 'bg-honey text-background'
+                      ? 'bg-honey text-background animate-screen-share'
                       : 'bg-foreground/10 text-foreground hover:bg-foreground/20'
                   )}
                 >
@@ -1214,7 +1236,7 @@ function MeetingRoom({
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setSidePanel(sidePanel === 'chat' ? 'none' : 'chat')}
                   className={cn(
-                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all',
+                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover-lift hover-glow-border',
                     sidePanel === 'chat'
                       ? 'bg-honey/20 text-honey'
                       : 'bg-foreground/10 text-foreground hover:bg-foreground/20'
@@ -1235,7 +1257,7 @@ function MeetingRoom({
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setSidePanel(sidePanel === 'participants' ? 'none' : 'participants')}
                   className={cn(
-                    'relative w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all',
+                    'relative w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover-lift hover-glow-border',
                     sidePanel === 'participants'
                       ? 'bg-honey/20 text-honey'
                       : 'bg-foreground/10 text-foreground hover:bg-foreground/20'
@@ -1267,7 +1289,7 @@ function MeetingRoom({
                     toast(isHandRaised ? 'Hand lowered' : 'Hand raised ✋')
                   }}
                   className={cn(
-                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all',
+                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover-lift hover-glow-border',
                     isHandRaised
                       ? 'bg-honey text-background'
                       : 'bg-foreground/10 text-foreground hover:bg-foreground/20'
@@ -1297,7 +1319,7 @@ function MeetingRoom({
                   <motion.button
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setShowReactions(!showReactions)}
-                    className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-foreground/10 text-foreground hover:bg-foreground/20 flex items-center justify-center transition-all"
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-foreground/10 text-foreground hover:bg-foreground/20 flex items-center justify-center transition-all hover-lift hover-glow-border"
                   >
                     <Sparkles className="w-5 h-5" />
                   </motion.button>
@@ -1338,7 +1360,7 @@ function MeetingRoom({
                   whileTap={{ scale: 0.9 }}
                   onClick={toggleRecording}
                   className={cn(
-                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all',
+                    'w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all hover-lift hover-glow-border',
                     isRecording
                       ? 'bg-red-500 text-white'
                       : 'bg-foreground/10 text-foreground hover:bg-foreground/20'
@@ -1364,7 +1386,7 @@ function MeetingRoom({
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setLayout(layout === 'grid' ? 'speaker' : 'grid')}
-                  className="hidden md:flex w-10 h-10 md:w-11 md:h-11 rounded-full bg-foreground/10 text-foreground hover:bg-foreground/20 items-center justify-center transition-all"
+                  className="hidden md:flex w-10 h-10 md:w-11 md:h-11 rounded-full bg-foreground/10 text-foreground hover:bg-foreground/20 items-center justify-center transition-all hover-lift hover-glow-border"
                 >
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="w-5 h-5">
                     {layout === 'grid' ? (
@@ -1397,7 +1419,7 @@ function MeetingRoom({
                   <DropdownMenuTrigger asChild>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
-                      className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-foreground/10 text-foreground hover:bg-foreground/20 flex items-center justify-center transition-all"
+                      className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-foreground/10 text-foreground hover:bg-foreground/20 flex items-center justify-center transition-all hover-lift hover-glow-border"
                     >
                       <MoreHorizontal className="w-5 h-5" />
                     </motion.button>
@@ -1454,7 +1476,7 @@ function MeetingRoom({
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={onLeave}
-                  className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-amber-600 text-white hover:bg-amber-700 flex items-center justify-center transition-all"
+                  className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-amber-600 text-white hover:bg-amber-700 flex items-center justify-center transition-all hover-lift hover-glow-border"
                 >
                   <PhoneOff className="w-5 h-5" />
                 </motion.button>
@@ -1470,8 +1492,20 @@ function MeetingRoom({
                 <TooltipTrigger asChild>
                   <motion.button
                     whileTap={{ scale: 0.9 }}
+                    animate={meetingDuration >= 1800 ? {
+                      boxShadow: [
+                        '0 0 0px rgba(239, 68, 68, 0)',
+                        '0 0 20px rgba(239, 68, 68, 0.6)',
+                        '0 0 0px rgba(239, 68, 68, 0)',
+                      ],
+                    } : undefined}
+                    transition={meetingDuration >= 1800 ? {
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: 'easeInOut',
+                    } : undefined}
                     onClick={() => setShowEndDialog(true)}
-                    className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-red-500 text-white hover:bg-red-600 flex items-center justify-center transition-all"
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-red-500 text-white hover:bg-red-600 flex items-center justify-center transition-all hover-lift hover-glow-border"
                   >
                     <Phone className="w-5 h-5" />
                   </motion.button>

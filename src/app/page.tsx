@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useSyncExternalStore, lazy, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { pageTransition, staggerContainer, staggerItem } from '@/lib/motion'
 import {
   Home,
   MessageCircle,
@@ -68,12 +69,20 @@ const bottomNavItems: NavItem[] = [
 // ============================================
 function SectionLoader() {
   return (
-    <div className="flex items-center justify-center h-64">
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex items-center justify-center h-64"
+    >
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 rounded-full border-2 border-honey/30 border-t-honey animate-spin" />
-        <span className="text-xs text-muted-foreground">Loading...</span>
+        <div className="relative w-12 h-12">
+          <div className="absolute inset-0 rounded-full border-2 border-honey/20" />
+          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-honey animate-spin" />
+          <div className="absolute inset-1 rounded-full border-2 border-transparent border-b-honey/50 animate-spin [animation-direction:reverse] [animation-duration:1.5s]" />
+        </div>
+        <span className="text-xs text-muted-foreground animate-pulse">Loading...</span>
       </div>
-    </div>
+    </motion.div>
   )
 }
 
@@ -85,10 +94,10 @@ function ActiveSection({ tab }: { tab: AppTab }) {
     <AnimatePresence mode="wait">
       <motion.div
         key={tab}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -8 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
+        variants={pageTransition}
+        initial="initial"
+        animate="animate"
+        exit="exit"
         className="h-full"
       >
         <Suspense fallback={<SectionLoader />}>

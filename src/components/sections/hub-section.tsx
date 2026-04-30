@@ -38,6 +38,7 @@ import {
   X,
   StickyNote,
   MessageCircle,
+  Play,
 } from 'lucide-react'
 import { mockChats, mockMessages, mockUsers } from '@/lib/mock-data'
 import { cn, generateAvatar, formatTime, getInitials, generateId, truncateText } from '@/lib/utils'
@@ -70,6 +71,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import { messageBubble, reactionPop, buttonHover, staggerContainer, staggerItem, springPresets } from '@/lib/motion'
 
 // ============================================
 // Constants
@@ -81,6 +83,7 @@ const MAX_CACHED_MESSAGES = 10
 const QUICK_EMOJIS = ['👍', '❤️', '🔥', '😂', '😍', '😮', '🎉', '💯']
 const TYPING_TIMEOUT = 3000
 const SIMULATED_TYPING_INTERVAL = 8000
+const WAVEFORM_BAR_COUNT = 36
 
 type FilterTab = 'all' | 'private' | 'groups' | 'channels' | 'unread'
 type MobileView = 'list' | 'chat' | 'info'
@@ -217,7 +220,92 @@ function TypingBar({ names }: { names: string[] }) {
 }
 
 // ============================================
-// Message Reactions Component
+// Voice Message Bubble Component
+// ============================================
+function VoiceMessageBubble({ isOwn, duration = 24 }: { isOwn: boolean; duration?: number }) {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const waveformSeeds = useRef<number[]>(
+    Array.from({ length: WAVEFORM_BAR_COUNT }, () => 20 + Math.random() * 80),
+  )
+
+  const formattedDuration = useMemo(() => {
+    const mins = Math.floor(duration / 60)
+    const secs = duration % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }, [duration])
+
+  return (
+    <div className="flex items-center gap-3 min-w-[200px] max-w-[280px]">
+      {/* Play / Pause button */}
+      <motion.button
+        onClick={() => setIsPlaying(!isPlaying)}
+        whileHover={{ scale: 1.12 }}
+        whileTap={{ scale: 0.88 }}
+        className={cn(
+          'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors',
+          isOwn
+            ? 'bg-background/20 hover:bg-background/30'
+            : 'bg-honey/20 hover:bg-honey/30 text-honey',
+        )}
+      >
+        {isPlaying ? (
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="flex items-center gap-[2px]"
+          >
+            <span className="w-[3px] h-3.5 rounded-full bg-current" />
+            <span className="w-[3px] h-3.5 rounded-full bg-current" />
+          </motion.div>
+        ) : (
+          <Play className="w-3.5 h-3.5 ml-0.5" fill="currentColor" />
+        )}
+      </motion.button>
+
+      {/* Waveform visualization */}
+      <div className="flex-1 flex items-center gap-[2px] h-6">
+        {waveformSeeds.current.map((height, i) => (
+          <motion.div
+            key={i}
+            className="waveform-bar w-[3px] rounded-full"
+            style={
+              {
+                '--wave-height': `${height}%`,
+                '--wave-delay': `${i * 0.04}s`,
+              } as React.CSSProperties
+            }
+            animate={
+              isPlaying
+                ? { height: ['20%', `${height}%`, '20%'] }
+                : { height: `${height}%` }
+            }
+            transition={
+              isPlaying
+                ? {
+                    duration: 0.8,
+                    repeat: Infinity,
+                    delay: i * 0.04,
+                    ease: 'easeInOut',
+                  }
+                : { duration: 0.3 }
+            }
+          />
+        ))}
+      </div>
+
+      {/* Duration display */}
+      <span className={cn(
+        'text-[10px] shrink-0 tabular-nums',
+        isOwn ? 'text-background/60' : 'text-muted-foreground',
+      )}>
+        {formattedDuration}
+      </span>
+    </div>
+  )
+}
+
+// ============================================
+// Message Reactions Component (Enhanced)
 // ============================================
 function MessageReactions({
   reactions,
@@ -226,37 +314,79 @@ function MessageReactions({
   reactions: MessageReaction[]
   onToggle: (emoji: string) => void
 }) {
+  const [poppedEmojis, setPoppedEmojis] = useState<Set<string>>(new Set())
+
+  const handleToggle = useCallback(
+    (emoji: string) => {
+      const reaction = reactions.find((r) => r.emoji === emoji)
+      const wasAlreadyActive = reaction?.userIds.includes(CURRENT_USER_ID) ?? false
+      onToggle(emoji)
+      // Trigger pop animation when toggling ON
+      if (!wasAlreadyActive) {
+        setPoppedEmojis((prev) => {
+          const next = new Set(prev)
+          next.add(emoji)
+          return next
+        })
+        setTimeout(() => {
+          setPoppedEmojis((prev) => {
+            const next = new Set(prev)
+            next.delete(emoji)
+            return next
+          })
+        }, 500)
+      }
+    },
+    [reactions, onToggle],
+  )
+
   if (reactions.length === 0) return null
   return (
     <div className="flex flex-wrap gap-1 mt-1">
-      {reactions.map((r) => (
-        <motion.button
-          key={r.emoji}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggle(r.emoji)
-          }}
-          className={cn(
-            'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs transition-colors',
-            r.userIds.includes(CURRENT_USER_ID)
-              ? 'bg-honey/20 border border-honey/30 text-honey'
-              : 'glass-card text-muted-foreground hover:text-foreground',
-          )}
-        >
-          <span>{r.emoji}</span>
-          <span className="text-[10px]">{r.userIds.length}</span>
-        </motion.button>
-      ))}
+      {reactions.map((r) => {
+        const isUserReacted = r.userIds.includes(CURRENT_USER_ID)
+        const justPopped = poppedEmojis.has(r.emoji)
+        return (
+          <motion.button
+            key={r.emoji}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => {
+              e.stopPropagation()
+              handleToggle(r.emoji)
+            }}
+            className={cn(
+              'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs transition-all',
+              isUserReacted
+                ? 'bg-honey/20 border border-honey/30 text-honey shadow-[0_0_8px_rgba(255,184,0,0.15)]'
+                : 'glass-card text-muted-foreground hover:text-foreground',
+              justPopped && 'animate-heart-pop',
+            )}
+          >
+            <span>{r.emoji}</span>
+            <span className="text-[10px]">{r.userIds.length}</span>
+          </motion.button>
+        )
+      })}
     </div>
   )
 }
 
 // ============================================
-// Quick Emoji Picker
+// Quick Emoji Picker (Enhanced)
 // ============================================
 function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => void; onClose: () => void }) {
+  const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null)
+
+  const handlePick = useCallback(
+    (emoji: string) => {
+      setSelectedEmoji(emoji)
+      onPick(emoji)
+      setTimeout(() => setSelectedEmoji(null), 400)
+    },
+    [onPick],
+  )
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.9, y: 5 }}
@@ -264,19 +394,28 @@ function EmojiPicker({ onPick, onClose }: { onPick: (emoji: string) => void; onC
       exit={{ opacity: 0, scale: 0.9, y: 5 }}
       className="absolute bottom-full right-0 mb-2 p-2 rounded-xl glass-premium shadow-lg z-50"
     >
-      <div className="flex flex-wrap gap-1">
+      <motion.div
+        className="flex flex-wrap gap-1"
+        variants={staggerContainer(0.03)}
+        initial="hidden"
+        animate="visible"
+      >
         {QUICK_EMOJIS.map((emoji) => (
           <motion.button
             key={emoji}
+            variants={staggerItem}
             whileHover={{ scale: 1.3 }}
             whileTap={{ scale: 0.9 }}
-            onClick={() => onPick(emoji)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent/50 transition-colors text-base"
+            onClick={() => handlePick(emoji)}
+            className={cn(
+              'w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent/50 transition-colors text-base',
+              selectedEmoji === emoji && 'animate-heart-pop',
+            )}
           >
             {emoji}
           </motion.button>
         ))}
-      </div>
+      </motion.div>
       <button
         onClick={onClose}
         className="absolute -top-1 -right-1 w-4 h-4 bg-muted rounded-full flex items-center justify-center"
@@ -299,11 +438,12 @@ function MessageStatus({ status }: { status: Message['status'] }) {
 }
 
 // ============================================
-// Message Bubble Component
+// Message Bubble Component (Enhanced)
 // ============================================
 function MessageBubble({
   message,
   isOwn,
+  isNew,
   onReply,
   onReaction,
   onContextMenu,
@@ -311,20 +451,36 @@ function MessageBubble({
 }: {
   message: Message
   isOwn: boolean
+  isNew: boolean
   onReply: (msg: Message) => void
   onReaction: (msgId: string, emoji: string) => void
   onContextMenu: (e: React.MouseEvent, msg: Message) => void
   replyingTo?: Message
 }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const sender = mockUsers.find((u) => u.id === message.senderId)
+
+  // Render voice message content for voice type messages
+  const renderContent = () => {
+    if (message.type === 'voice') {
+      return <VoiceMessageBubble isOwn={isOwn} />
+    }
+    return (
+      <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+    )
+  }
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.2 }}
-      className={cn('flex w-full px-3', isOwn ? 'justify-end' : 'justify-start')}
+      variants={messageBubble}
+      initial="hidden"
+      animate="visible"
+      className={cn(
+        'flex w-full px-3',
+        isOwn ? 'justify-end' : 'justify-start',
+        isNew && 'animate-message-bounce',
+      )}
     >
       <div className={cn('flex flex-col max-w-[85%] md:max-w-[70%]', isOwn ? 'items-end' : 'items-start')}>
         {/* Sender name for groups */}
@@ -335,11 +491,14 @@ function MessageBubble({
         )}
         <div
           onContextMenu={(e) => onContextMenu(e, message)}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
           className={cn(
-            'relative group rounded-2xl px-3 py-2 transition-colors',
+            'relative group rounded-2xl px-3 py-2 transition-all',
             isOwn
               ? 'bg-honey/90 text-background rounded-br-md'
               : 'glass-card text-foreground rounded-bl-md',
+            isHovered && 'gradient-border',
           )}
         >
           {/* Reply preview */}
@@ -355,8 +514,8 @@ function MessageBubble({
             </div>
           )}
 
-          {/* Message text */}
-          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
+          {/* Message content */}
+          {renderContent()}
 
           {/* Time and status */}
           <div className={cn('flex items-center gap-1 mt-0.5', isOwn ? 'justify-end' : 'justify-end')}>
@@ -381,8 +540,7 @@ function MessageBubble({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <motion.button
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    {...buttonHover}
                     onClick={(e) => {
                       e.stopPropagation()
                       setShowEmojiPicker(!showEmojiPicker)
@@ -430,8 +588,7 @@ function ScrollToBottomBtn({ onClick }: { onClick: () => void }) {
       className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20"
     >
       <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
+        {...buttonHover}
         onClick={onClick}
         className="w-8 h-8 rounded-full glass-premium shadow-lg flex items-center justify-center"
       >
@@ -442,7 +599,7 @@ function ScrollToBottomBtn({ onClick }: { onClick: () => void }) {
 }
 
 // ============================================
-// Chat List Item Component
+// Chat List Item Component (Enhanced)
 // ============================================
 function ChatListItem({
   chat,
@@ -469,7 +626,7 @@ function ChatListItem({
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
-        'w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left',
+        'w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left hover-lift hover-glow-border',
         isActive && 'bg-honey/10',
       )}
     >
@@ -728,12 +885,20 @@ export default function HubSection() {
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const [contextMessage, setContextMessage] = useState<Message | null>(null)
   const [contextPos, setContextPos] = useState({ x: 0, y: 0 })
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set())
 
   // ---- Refs ----
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const simulatedTypingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const initialMessageIdsRef = useRef<Set<string>>(new Set())
+
+  // ---- Track initial message IDs (for isNew detection) ----
+  useEffect(() => {
+    const ids = new Set(messages.map((m) => m.id))
+    initialMessageIdsRef.current = ids
+  }, []) // Run once on mount to capture initial IDs
 
   // ---- Active Chat ----
   const activeChat = useMemo(
@@ -886,6 +1051,7 @@ export default function HubSection() {
       createdAt: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, newMsg])
+    setNewMessageIds((prev) => new Set(prev).add(newMsg.id))
     setChats((prev) =>
       prev.map((c) =>
         c.id === activeChatId
@@ -1009,6 +1175,15 @@ export default function HubSection() {
       }
     },
     [sendMessage],
+  )
+
+  // ---- Helper: check if a message was created during this session ----
+  const isSessionMessage = useCallback(
+    (msgId: string) => {
+      // A message is "new" if it was sent during this session OR is not in the initial snapshot
+      return newMessageIds.has(msgId)
+    },
+    [newMessageIds],
   )
 
   // ---- Render ----
@@ -1180,6 +1355,7 @@ export default function HubSection() {
                     const replyingTo = msg.replyTo
                       ? messages.find((m) => m.id === msg.replyTo)
                       : undefined
+                    const isNew = isSessionMessage(msg.id)
 
                     return (
                       <React.Fragment key={msg.id}>
@@ -1195,6 +1371,7 @@ export default function HubSection() {
                         <MessageBubble
                           message={msg}
                           isOwn={isOwn}
+                          isNew={isNew}
                           onReply={setReplyTo}
                           onReaction={toggleReaction}
                           onContextMenu={handleContextMenu}
@@ -1308,7 +1485,7 @@ export default function HubSection() {
 
                   {/* Send / Mic button */}
                   {messageText.trim() ? (
-                    <motion.div whileTap={{ scale: 0.9 }}>
+                    <motion.div {...buttonHover}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button

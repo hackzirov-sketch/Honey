@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
+  Pause,
 } from 'lucide-react'
 import { mockStreams, mockVideos, mockUsers } from '@/lib/mock-data'
 import {
@@ -42,6 +43,17 @@ import {
   truncateText,
   cn,
 } from '@/lib/utils'
+import {
+  videoCard,
+  glassCardHover,
+  buttonHover,
+  buttonGlow,
+  staggerContainer,
+  staggerItem,
+  fadeInUp,
+  springPresets,
+  likeBurstParticles,
+} from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -132,6 +144,67 @@ const autoChatMessages = [
   'First time here, this is great',
   'Subscribed! 💛',
 ]
+
+// ============================================
+// Like Burst Button Component
+// ============================================
+function LikeBurstButton({
+  isLiked,
+  likeCount,
+  onToggle,
+}: {
+  isLiked: boolean
+  likeCount: number
+  onToggle: () => void
+}) {
+  const [burstKey, setBurstKey] = useState(0)
+  const [showBurst, setShowBurst] = useState(false)
+
+  const handleClick = () => {
+    onToggle()
+    if (!isLiked) {
+      setBurstKey((prev) => prev + 1)
+      setShowBurst(true)
+      setTimeout(() => setShowBurst(false), 700)
+    }
+  }
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.9 }}
+      onClick={handleClick}
+      className={cn(
+        'relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+        isLiked ? 'bg-honey/20 text-honey' : 'glass-card text-muted-foreground hover:text-foreground'
+      )}
+    >
+      {/* Heart icon with pop animation */}
+      <span className={cn('inline-flex', isLiked && 'animate-heart-pop')}>
+        <Heart className={cn('w-4 h-4', isLiked && 'fill-honey text-honey')} />
+      </span>
+      {formatNumber(likeCount)}
+
+      {/* Burst particles */}
+      {showBurst && (
+        <span className="absolute inset-0 flex items-center justify-center pointer-events-none" key={burstKey}>
+          {likeBurstParticles.map((particle) => (
+            <span
+              key={particle.id}
+              className="like-burst-particle absolute"
+              style={{
+                '--burst-x': `${particle.x}px`,
+                '--burst-y': `${particle.y}px`,
+                '--burst-rotate': `${particle.rotation}deg`,
+              } as React.CSSProperties}
+            >
+              <Heart className="w-3 h-3 text-honey fill-honey" style={{ transform: `scale(${particle.scale})` }} />
+            </span>
+          ))}
+        </span>
+      )}
+    </motion.button>
+  )
+}
 
 // ============================================
 // Stream Section Main Component
@@ -235,20 +308,27 @@ export default function StreamsSection() {
         )}
       </AnimatePresence>
 
-      {/* Category Filter Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+      {/* Category Filter Chips - Enhanced with stagger animation and glow */}
+      <motion.div
+        key={activeCategory}
+        variants={staggerContainer(0.04)}
+        initial="hidden"
+        animate="visible"
+        className="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
+      >
         {categories.map((cat) => {
           const Icon = cat.icon
           const isActive = activeCategory === cat.id
           return (
             <motion.button
               key={cat.id}
+              variants={staggerItem}
               whileTap={{ scale: 0.95 }}
               onClick={() => setActiveCategory(cat.id)}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shrink-0 transition-all',
                 isActive
-                  ? 'bg-honey text-background shadow-honey'
+                  ? 'bg-honey text-background shadow-honey shadow-[0_0_12px_rgba(255,184,0,0.25)]'
                   : 'glass-card text-muted-foreground hover:text-foreground hover:bg-honey/5'
               )}
             >
@@ -257,7 +337,7 @@ export default function StreamsSection() {
             </motion.button>
           )
         })}
-      </div>
+      </motion.div>
 
       {/* Watch View / Live View */}
       <AnimatePresence mode="wait">
@@ -409,7 +489,7 @@ export default function StreamsSection() {
 }
 
 // ============================================
-// Video Card Component
+// Video Card Component — Enhanced
 // ============================================
 function VideoCard({
   type,
@@ -445,7 +525,7 @@ function VideoCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={onClick}
-      className="glass-card rounded-xl overflow-hidden cursor-pointer group transition-all hover:shadow-honey"
+      className="glass-card gradient-border rounded-xl overflow-hidden cursor-pointer group transition-all hover:shadow-honey hover-lift"
     >
       {/* Thumbnail */}
       <div className={cn('relative aspect-video flex items-center justify-center overflow-hidden', `bg-gradient-to-br ${getGradient(id)}`)}>
@@ -457,7 +537,7 @@ function VideoCard({
           <Play className="w-6 h-6 text-honey ml-0.5" />
         </motion.div>
 
-        {/* Hover Overlay */}
+        {/* Hover Overlay — Premium play */}
         <AnimatePresence>
           {isHovered && (
             <motion.div
@@ -469,6 +549,32 @@ function VideoCard({
               <div className="w-14 h-14 rounded-full bg-honey/90 flex items-center justify-center shadow-honey-lg">
                 <Play className="w-7 h-7 text-background ml-0.5" />
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Preview Overlay — Slides up from bottom with title & author (glass overlay) */}
+        <AnimatePresence>
+          {isHovered && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+              className="absolute bottom-0 left-0 right-0 p-2.5 bg-gradient-to-t from-black/80 via-black/50 to-transparent backdrop-blur-[2px]"
+            >
+              <p className="text-[11px] font-semibold text-white leading-tight line-clamp-1">{title}</p>
+              {author && (
+                <p className="text-[9px] text-white/70 mt-0.5 flex items-center gap-1">
+                  <img src={generateAvatar(author.displayName)} alt="" className="w-3 h-3 rounded-full" />
+                  {author.displayName}
+                  {author.isVerified && (
+                    <span className="w-2.5 h-2.5 bg-honey rounded-full flex items-center justify-center">
+                      <span className="text-[5px] text-background font-bold">✓</span>
+                    </span>
+                  )}
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -541,7 +647,7 @@ function VideoCard({
 }
 
 // ============================================
-// Watch View Component
+// Watch View Component — Enhanced with LikeBurst & Mini Player
 // ============================================
 function WatchView({
   video,
@@ -559,6 +665,9 @@ function WatchView({
   const [likeCount, setLikeCount] = useState(video.likes)
   const [descExpanded, setDescExpanded] = useState(false)
   const [commentText, setCommentText] = useState('')
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [showMiniPlayer, setShowMiniPlayer] = useState(false)
+  const videoPlayerRef = useRef<HTMLDivElement>(null)
 
   const author = mockUsers.find((u) => u.id === video.authorId)
 
@@ -569,6 +678,18 @@ function WatchView({
     { id: 'vc2', user: 'Timur A.', text: 'Great production quality! 👏', likes: 23, time: '4h ago' },
     { id: 'vc3', user: 'Nodira U.', text: 'Can you make a follow-up on this topic?', likes: 18, time: '1d ago' },
   ]
+
+  // Scroll detection for Mini Player
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!videoPlayerRef.current) return
+      const rect = videoPlayerRef.current.getBoundingClientRect()
+      setShowMiniPlayer(rect.bottom < 0)
+    }
+    const container = window
+    container.addEventListener('scroll', handleScroll, true)
+    return () => container.removeEventListener('scroll', handleScroll, true)
+  }, [])
 
   return (
     <motion.div
@@ -588,11 +709,25 @@ function WatchView({
       </motion.button>
 
       {/* Video Player */}
-      <div className={cn('relative aspect-video rounded-xl overflow-hidden', `bg-gradient-to-br ${getGradient(video.id)}`)}>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-20 h-20 rounded-full bg-honey/20 flex items-center justify-center animate-honey-glow">
-            <Play className="w-10 h-10 text-honey ml-1" />
-          </div>
+      <div
+        ref={videoPlayerRef}
+        className={cn('relative aspect-video rounded-xl overflow-hidden', `bg-gradient-to-br ${getGradient(video.id)}`)}
+      >
+        <div
+          className="absolute inset-0 flex items-center justify-center cursor-pointer"
+          onClick={() => setIsPlaying(!isPlaying)}
+        >
+          <motion.div
+            animate={isPlaying ? { scale: 0, opacity: 0 } : { scale: 1, opacity: 1 }}
+            transition={{ duration: 0.2 }}
+            className="w-20 h-20 rounded-full bg-honey/20 flex items-center justify-center animate-honey-glow"
+          >
+            {isPlaying ? (
+              <Pause className="w-10 h-10 text-honey" />
+            ) : (
+              <Play className="w-10 h-10 text-honey ml-1" />
+            )}
+          </motion.div>
         </div>
         {/* Duration overlay */}
         <div className="absolute bottom-3 right-3">
@@ -619,23 +754,17 @@ function WatchView({
           </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons — Enhanced with LikeBurstButton */}
         <div className="flex items-center gap-2 flex-wrap">
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => {
+          <LikeBurstButton
+            isLiked={isLiked}
+            likeCount={likeCount}
+            onToggle={() => {
               setIsLiked(!isLiked)
               setLikeCount((c) => (isLiked ? c - 1 : c + 1))
               setIsDisliked(false)
             }}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-              isLiked ? 'bg-honey/20 text-honey' : 'glass-card text-muted-foreground hover:text-foreground'
-            )}
-          >
-            <ThumbsUp className={cn('w-4 h-4', isLiked && 'fill-honey')} />
-            {formatNumber(likeCount)}
-          </motion.button>
+          />
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => { setIsDisliked(!isDisliked); setIsLiked(false) }}
@@ -804,12 +933,63 @@ function WatchView({
           </div>
         </div>
       </div>
+
+      {/* Mini Player — Floating glass card at bottom-right */}
+      <AnimatePresence>
+        {showMiniPlayer && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 40 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 40 }}
+            transition={{ ...springPresets.gentle }}
+            className="fixed bottom-4 right-4 z-50 glass-premium rounded-xl overflow-hidden shadow-2xl w-56"
+          >
+            {/* Mini thumbnail */}
+            <div
+              className={cn('relative aspect-video flex items-center justify-center cursor-pointer', `bg-gradient-to-br ${getGradient(video.id)}`)}
+              onClick={() => {
+                videoPlayerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+            >
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsPlaying(!isPlaying)
+                }}
+                className="w-8 h-8 rounded-full bg-honey/20 flex items-center justify-center backdrop-blur-sm hover:bg-honey/30 transition-colors"
+              >
+                {isPlaying ? (
+                  <Pause className="w-4 h-4 text-honey" />
+                ) : (
+                  <Play className="w-4 h-4 text-honey ml-0.5" />
+                )}
+              </motion.button>
+              <div className="absolute bottom-1 right-1">
+                <span className="px-1 py-0.5 bg-black/60 rounded text-[8px] font-medium text-white backdrop-blur-sm">
+                  {formatDuration(video.duration)}
+                </span>
+              </div>
+            </div>
+            {/* Mini info */}
+            <div className="p-2">
+              <p className="text-[10px] font-semibold line-clamp-1">{video.title}</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                {author && (
+                  <img src={generateAvatar(author.displayName)} alt="" className="w-3 h-3 rounded-full" />
+                )}
+                <span className="text-[9px] text-muted-foreground truncate">{author?.displayName}</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }
 
 // ============================================
-// Live Stream View Component
+// Live Stream View Component — Enhanced with Comment Overlay
 // ============================================
 function LiveStreamView({ stream, onBack }: { stream: Stream; onBack: () => void }) {
   const [chatMessages, setChatMessages] = useState(mockChatMessages)
@@ -817,6 +997,7 @@ function LiveStreamView({ stream, onBack }: { stream: Stream; onBack: () => void
   const [viewerCount, setViewerCount] = useState(stream.viewers)
   const chatEndRef = useRef<HTMLDivElement>(null)
   const [streamHealth] = useState(100)
+  const [commentOverlay, setCommentOverlay] = useState(false)
 
   // Auto-scroll chat
   useEffect(() => {
@@ -907,6 +1088,20 @@ function LiveStreamView({ stream, onBack }: { stream: Stream; onBack: () => void
             </motion.span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Comment Overlay Toggle */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setCommentOverlay(!commentOverlay)}
+              className={cn(
+                'px-2 py-1 rounded-lg text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-1 transition-all',
+                commentOverlay
+                  ? 'bg-honey/70 text-background'
+                  : 'bg-black/50'
+              )}
+            >
+              <MessageCircle className="w-3 h-3" />
+              {commentOverlay ? 'Chat On' : 'Chat Off'}
+            </motion.button>
             {/* Stream Health */}
             <div className="px-2 py-1 bg-black/50 rounded-lg text-[10px] font-medium text-white backdrop-blur-sm flex items-center gap-1">
               <div className={cn('w-2 h-2 rounded-full', streamHealth > 80 ? 'bg-emerald-400' : 'bg-amber-400')} />
@@ -914,6 +1109,42 @@ function LiveStreamView({ stream, onBack }: { stream: Stream; onBack: () => void
             </div>
           </div>
         </div>
+
+        {/* Comment Overlay — Slides up over video */}
+        <AnimatePresence>
+          {commentOverlay && (
+            <motion.div
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '100%', opacity: 0 }}
+              transition={{ ...springPresets.stiff }}
+              className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-black/70 via-black/40 to-transparent backdrop-blur-sm overflow-hidden"
+            >
+              <div className="h-full overflow-y-auto px-3 pb-3 pt-6 space-y-2 scrollbar-none">
+                {chatMessages.map((msg, msgIdx) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    transition={{ duration: 0.25, delay: msgIdx > chatMessages.length - 3 ? 0.05 : 0 }}
+                    className="flex items-start gap-2"
+                  >
+                    <div className={cn('w-5 h-5 rounded-full flex items-center justify-center text-[7px] font-bold text-background shrink-0', `bg-gradient-to-br ${getGradient(msg.id)}`)}>
+                      {msg.user[0]}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className={cn('text-[10px] font-semibold', msg.user === 'You' ? 'text-honey' : 'text-white')}>
+                        {msg.user}
+                      </span>
+                      <span className="text-[9px] text-white/50 ml-1">{msg.time}</span>
+                      <p className="text-[10px] text-white/80 leading-relaxed">{msg.text}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Bottom Overlay */}
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
@@ -926,9 +1157,11 @@ function LiveStreamView({ stream, onBack }: { stream: Stream; onBack: () => void
               </div>
             </div>
           )}
-          <Badge className="bg-honey/80 text-background border-0 text-[10px] backdrop-blur-sm">
-            {stream.category}
-          </Badge>
+          {!commentOverlay && (
+            <Badge className="bg-honey/80 text-background border-0 text-[10px] backdrop-blur-sm">
+              {stream.category}
+            </Badge>
+          )}
         </div>
       </div>
 
