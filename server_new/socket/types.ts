@@ -134,6 +134,18 @@ export interface MessageReadReceiptData {
   lastReadMessageId: string;
 }
 
+export interface MessageDeliveredData {
+  conversationId: string;
+  messageId: string;
+  deliveredAt: string;
+}
+
+export interface ReactionActionData {
+  messageId: string;
+  userId: string;
+  emoji: string;
+}
+
 // ---- Meeting / WebRTC Data --------------------------------------------------
 
 export interface MeetingJoinData {
@@ -296,6 +308,8 @@ export interface ClientToServerEvents {
   'message:edit': (data: MessageEditData) => void;
   'message:delete': (data: MessageDeleteData) => void;
   'message:react': (data: MessageReactData) => void;
+  'reaction:add': (data: MessageReactData) => void;
+  'reaction:remove': (data: MessageReactData) => void;
   'typing:start': (data: TypingData) => void;
   'typing:stop': (data: TypingData) => void;
   'message:read': (data: MessageReadData) => void;
@@ -335,9 +349,16 @@ export interface ServerToClientEvents {
   // Messages
   'message:new': (data: MessagePayload) => void;
   'message:updated': (data: MessagePayload) => void;
+  'message:edit': (data: MessagePayload) => void;
   'message:deleted': (data: MessageDeletedData) => void;
+  'message:delete': (data: MessageDeletedData) => void;
+  'message:delivered': (data: MessageDeliveredData) => void;
   'reaction:updated': (data: { messageId: string; reactions: ReactionPayload[] }) => void;
+  'reaction:add': (data: ReactionActionData) => void;
+  'reaction:remove': (data: ReactionActionData) => void;
   'typing:indicator': (data: TypingIndicatorData) => void;
+  'typing:start': (data: TypingIndicatorData) => void;
+  'typing:stop': (data: TypingIndicatorData) => void;
   'message:read': (data: MessageReadReceiptData) => void;
 
   // Calls

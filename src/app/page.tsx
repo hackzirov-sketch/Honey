@@ -14,6 +14,7 @@ import {
   Sun,
   Bell,
   Search,
+  BookOpen,
   FolderOpen,
   Settings,
   X
@@ -23,6 +24,7 @@ import { useAppStore } from '@/lib/store'
 import { HoneyLogo } from '@/components/honey-logo'
 import { cn } from '@/lib/utils'
 import type { AppTab } from '@/types'
+import { fetchMeWithApi, logoutWithApi } from '@/lib/api-client'
 
 // Lazy-loaded sections
 const HomeSection = lazy(() => import('@/components/sections/home-section'))
@@ -31,6 +33,7 @@ const MeetSection = lazy(() => import('@/components/sections/meet-section'))
 const StreamsSection = lazy(() => import('@/components/sections/streams-section'))
 const FeedSection = lazy(() => import('@/components/sections/feed-section'))
 const ExploreSection = lazy(() => import('@/components/sections/explore-section'))
+const LibrarySection = lazy(() => import('@/components/sections/library-section'))
 const FilesSection = lazy(() => import('@/components/sections/files-section'))
 const ProfileSection = lazy(() => import('@/components/sections/profile-section'))
 const SettingsSection = lazy(() => import('@/components/sections/settings-section'))
@@ -56,8 +59,30 @@ const mainNavItems: NavItem[] = [
 
 const secondaryNavItems: NavItem[] = [
   { id: 'explore', label: 'Explore', icon: Search, mobileLabel: 'Explore' },
+  { id: 'library', label: 'Library', icon: BookOpen, mobileLabel: 'Library' },
   { id: 'files', label: 'Files & Media', icon: FolderOpen, mobileLabel: 'Files' },
 ]
+
+const LEGACY_HASH_TO_TAB: Record<string, AppTab> = {
+  '/': 'home',
+  '/messenger': 'hub',
+  '/classroom': 'meet',
+  '/media': 'streams',
+  '/library': 'library',
+  '/security': 'settings',
+  '/profile': 'profile',
+  '/settings': 'settings',
+}
+
+const TAB_TO_LEGACY_HASH: Partial<Record<AppTab, string>> = {
+  home: '/',
+  hub: '/messenger',
+  meet: '/classroom',
+  streams: '/media',
+  library: '/library',
+  settings: '/settings',
+  profile: '/profile',
+}
 
 const bottomNavItems: NavItem[] = [
   { id: 'profile', label: 'Profile', icon: User, mobileLabel: 'Profile' },
@@ -72,16 +97,44 @@ function SectionLoader() {
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="flex items-center justify-center h-64"
+      className="flex h-64 items-center justify-center px-4"
     >
-      <div className="flex flex-col items-center gap-3">
-        <div className="relative w-12 h-12">
-          <div className="absolute inset-0 rounded-full border-2 border-honey/20" />
-          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-honey animate-spin" />
-          <div className="absolute inset-1 rounded-full border-2 border-transparent border-b-honey/50 animate-spin [animation-direction:reverse] [animation-duration:1.5s]" />
+      <motion.div
+        initial={{ opacity: 0, y: 18 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: 'spring', stiffness: 180, damping: 18 }}
+        className="animated-gold-border relative w-full max-w-sm overflow-hidden rounded-[30px] border border-[#f7c464]/20 bg-black/55 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-3xl"
+      >
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,215,0,0.22),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,184,0,0.14),transparent_32%)]" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-white/10 bg-white/6 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <HoneyLogo
+              size="sm"
+              animated
+              className="scale-[0.92] drop-shadow-[0_0_16px_rgba(255,184,0,0.28)]"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold tracking-[0.22em] text-[#ffe8a3]">
+                HONEY
+              </span>
+              <span className="rounded-full border border-[#f7c464]/20 bg-[#f7c464]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.28em] text-[#f7c464]">
+                Live
+              </span>
+            </div>
+            <p className="mt-1 text-sm text-white/82">Preparing your premium workspace</p>
+            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/8">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-[#7a5300] via-[#ffcf5c] to-[#fff0bd]"
+                animate={{ x: ['-45%', '105%'] }}
+                transition={{ duration: 1.8, ease: 'easeInOut', repeat: Infinity }}
+                style={{ width: '42%' }}
+              />
+            </div>
+          </div>
         </div>
-        <span className="text-xs text-muted-foreground animate-pulse">Loading...</span>
-      </div>
+      </motion.div>
     </motion.div>
   )
 }
@@ -107,6 +160,7 @@ function ActiveSection({ tab }: { tab: AppTab }) {
           {tab === 'streams' && <StreamsSection />}
           {tab === 'feed' && <FeedSection />}
           {tab === 'explore' && <ExploreSection />}
+          {tab === 'library' && <LibrarySection />}
           {tab === 'files' && <FilesSection />}
           {tab === 'profile' && <ProfileSection />}
           {tab === 'settings' && <SettingsSection />}
@@ -122,6 +176,13 @@ function ActiveSection({ tab }: { tab: AppTab }) {
 // ============================================
 function MobileBottomNav({ onNotifications }: { onNotifications: () => void }) {
   const { activeTab, setActiveTab, unreadCount } = useAppStore()
+  const isMessengerHash =
+    typeof window !== 'undefined' &&
+    (window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash) === '/messenger'
+
+  if (activeTab === 'hub' || isMessengerHash) return null
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden ios-frosted-bar">
@@ -184,7 +245,21 @@ function DesktopSidebar({ onNotifications, notificationsOpen }: {
   onNotifications: () => void
   notificationsOpen: boolean
 }) {
-  const { activeTab, setActiveTab, theme, toggleTheme, unreadCount } = useAppStore()
+  const { activeTab, setActiveTab, theme, toggleTheme, unreadCount, isAuthenticated, clearAuthSession, authToken, setUser, user } = useAppStore()
+
+  const onLogout = async () => {
+    try {
+      if (authToken) {
+        await logoutWithApi(authToken)
+      }
+    } catch {
+      // Keep UX smooth even if logout API fails
+    } finally {
+      clearAuthSession()
+      setUser(null)
+      setActiveTab('home')
+    }
+  }
 
   return (
     <aside className="hidden md:flex flex-col w-64 lg:w-72 h-screen fixed left-0 top-0 ios-frosted-bar z-40">
@@ -310,14 +385,33 @@ function DesktopSidebar({ onNotifications, notificationsOpen }: {
           <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
         </motion.button>
 
+        {isAuthenticated ? (
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-300 hover:text-red-200 hover:bg-red-500/10 transition-all"
+          >
+            <X className="w-5 h-5" />
+            <span>Log Out</span>
+          </motion.button>
+        ) : (
+          <a
+            href="/login"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-honey hover:text-honey-light hover:bg-honey/10 transition-all"
+          >
+            <User className="w-5 h-5" />
+            <span>Log In</span>
+          </a>
+        )}
+
         {/* User info */}
         <div className="flex items-center gap-3 px-3 py-2.5">
           <div className="w-8 h-8 rounded-full bg-honey/20 flex items-center justify-center text-xs font-bold text-honey">
-            JK
+            {user?.displayName?.slice(0, 2).toUpperCase() ?? 'GU'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Jasur Karimov</p>
-            <p className="text-[10px] text-muted-foreground truncate">@jasur_karimov</p>
+            <p className="text-sm font-medium truncate">{user?.displayName ?? 'Guest User'}</p>
+            <p className="text-[10px] text-muted-foreground truncate">@{user?.username ?? 'guest'}</p>
           </div>
         </div>
       </div>
@@ -329,8 +423,19 @@ function DesktopSidebar({ onNotifications, notificationsOpen }: {
 // Main App Shell
 // ============================================
 export default function AppShell() {
-  const { activeTab, theme, toggleTheme, unreadCount } = useAppStore()
+  const {
+    activeTab,
+    setActiveTab,
+    theme,
+    toggleTheme,
+    unreadCount,
+    authToken,
+    setUser,
+    clearAuthSession,
+    hydrateAuthFromStorage,
+  } = useAppStore()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const showMobileBottomNav = activeTab !== 'hub'
 
   const isMounted = useSyncExternalStore(
     () => () => {},
@@ -343,12 +448,55 @@ export default function AppShell() {
   }, [])
 
   useEffect(() => {
+    hydrateAuthFromStorage()
+    if (typeof window !== 'undefined') {
+      const syncFromHash = () => {
+        const rawHash = window.location.hash
+        const normalizedHash = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash
+        const mapped = LEGACY_HASH_TO_TAB[normalizedHash]
+        if (mapped) {
+          setActiveTab(mapped)
+        }
+      }
+
+      syncFromHash()
+      window.addEventListener('hashchange', syncFromHash)
+      return () => {
+        window.removeEventListener('hashchange', syncFromHash)
+      }
+    }
+  }, [hydrateAuthFromStorage, setActiveTab])
+
+  useEffect(() => {
+    if (!authToken) return
+    void fetchMeWithApi(authToken)
+      .then((user) => {
+        setUser(user)
+      })
+      .catch(() => {
+        clearAuthSession()
+      })
+  }, [authToken, setUser, clearAuthSession])
+
+  useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark')
     } else {
       document.documentElement.classList.remove('dark')
     }
   }, [theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const legacyHash = TAB_TO_LEGACY_HASH[activeTab]
+    if (!legacyHash) return
+    const currentHash = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash
+    if (currentHash !== legacyHash) {
+      window.history.replaceState(null, '', `#${legacyHash}`)
+    }
+  }, [activeTab])
 
   if (!isMounted) {
     return (
@@ -438,7 +586,9 @@ export default function AppShell() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <MobileBottomNav onNotifications={() => setNotificationsOpen(true)} />
+      {showMobileBottomNav && (
+        <MobileBottomNav onNotifications={() => setNotificationsOpen(true)} />
+      )}
 
       {/* Notifications Sheet */}
       <Sheet open={notificationsOpen} onOpenChange={setNotificationsOpen}>

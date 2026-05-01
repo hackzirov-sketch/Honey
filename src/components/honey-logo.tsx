@@ -4,15 +4,15 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 
 interface HoneyLogoProps {
-  size?: 'sm' | 'lg'
+  size?: 'sm' | 'lg' | 'xl'
   className?: string
   animated?: boolean
 }
 
 export function HoneyLogo({ size = 'lg', className, animated = true }: HoneyLogoProps) {
-  const dimensions = size === 'sm' ? 32 : 56
-  const fontSize = size === 'sm' ? 10 : 16
-  const strokeWidth = size === 'sm' ? 1.5 : 2
+  const dimensions = size === 'sm' ? 32 : size === 'xl' ? 72 : 56
+  const fontSize = size === 'sm' ? 10 : size === 'xl' ? 20 : 16
+  const strokeWidth = size === 'sm' ? 1.5 : size === 'xl' ? 2.5 : 2
 
   return (
     <motion.div
@@ -78,7 +78,7 @@ export function HoneyLogo({ size = 'lg', className, animated = true }: HoneyLogo
       </svg>
 
       {/* Text */}
-      {size === 'lg' && (
+      {size !== 'sm' && (
         <span
           className="text-gradient-honey font-bold tracking-wider"
           style={{ fontSize: `${fontSize}px` }}

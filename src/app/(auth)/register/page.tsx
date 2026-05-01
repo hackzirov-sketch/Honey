@@ -14,15 +14,15 @@ import {
   AtSign,
   Check,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { HoneyLogo } from '@/components/honey-logo'
 import { useAppStore } from '@/lib/store'
 import { fadeInUp } from '@/lib/motion'
+import { registerWithApi } from '@/lib/api-client'
 
 export default function RegisterPage() {
   const router = useRouter()
-  const { toggleTheme, theme } = useAppStore()
+  const { toggleTheme, theme, setAuthSession } = useAppStore()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [formData, setFormData] = useState({
@@ -35,6 +35,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
   const [agreed, setAgreed] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
@@ -58,11 +59,30 @@ export default function RegisterPage() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (formData.password !== formData.confirmPassword) return
+    setErrorMessage(null)
+    if (formData.password !== formData.confirmPassword) {
+      setErrorMessage("Passwords don't match")
+      return
+    }
+    if (!agreed) {
+      setErrorMessage('Please accept Terms and Privacy Policy')
+      return
+    }
+
     setIsLoading(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setIsLoading(false)
-    router.push('/')
+    try {
+      const session = await registerWithApi({
+        username: formData.username.replace(/^@+/, '').trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+      })
+      setAuthSession(session)
+      router.push('/')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Registration failed')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const fields = [
@@ -233,6 +253,12 @@ export default function RegisterPage() {
               <span className="text-honey cursor-pointer hover:underline">Privacy Policy</span>
             </span>
           </div>
+
+          {errorMessage && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {errorMessage}
+            </p>
+          )}
 
           {/* Submit Button */}
           <motion.button

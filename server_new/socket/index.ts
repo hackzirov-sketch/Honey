@@ -16,6 +16,7 @@ import { registerMessengerHandlers } from './handlers/messenger';
 import { registerPresenceHandlers } from './handlers/presence';
 import { registerCallHandlers } from './handlers/calls';
 import { registerStreamHandlers } from './handlers/streams';
+import { setupRedisBridge } from './redis-bridge';
 import type { HoneyIOServer, HoneySocket, MessagePayload } from './types';
 
 // ---- Constants --------------------------------------------------------------
@@ -56,19 +57,23 @@ export function setupSocket(httpServer: HttpServer): HoneyIOServer {
   // ---- Redis Adapter (optional — falls back to in-memory) ------------------
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createAdapter } = require('@socket.io/redis-adapter');
-    const pubClient = redis.duplicate();
-    const subClient = pubClient.duplicate();
+    if (redis.kind === 'redis') {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { createAdapter } = require('@socket.io/redis-adapter');
+      const pubClient = redis.duplicate();
+      const subClient = pubClient.duplicate();
 
-    void pubClient.connect().then(() => {
-      return subClient.connect();
-    }).then(() => {
-      io.adapter(createAdapter(pubClient, subClient));
-      logger.info('socket:redis adapter connected');
-    }).catch(() => {
-      logger.warn('socket: no Redis adapter, using in-memory mode');
-    });
+      void pubClient.connect().then(() => {
+        return subClient.connect();
+      }).then(() => {
+        io.adapter(createAdapter(pubClient, subClient));
+        logger.info('socket:redis adapter connected');
+      }).catch(() => {
+        logger.warn('socket: no Redis adapter, using in-memory mode');
+      });
+    } else {
+      logger.warn('socket: Redis unavailable, using in-memory socket adapter');
+    }
   } catch {
     logger.info('socket: @socket.io/redis-adapter not installed, using in-memory mode');
   }
@@ -83,6 +88,7 @@ export function setupSocket(httpServer: HttpServer): HoneyIOServer {
   registerPresenceHandlers(io);
   registerCallHandlers(io);
   registerStreamHandlers(io);
+  void setupRedisBridge(io);
 
   // ---- Connection / Disconnection -------------------------------------------
 

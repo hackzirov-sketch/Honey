@@ -294,6 +294,11 @@ async function handleMessageSend(
   const roomName = conversationRoom(conversationId);
   const payload = await serializeMessagePayload(message, true);
   io.to(roomName).emit('message:new', payload);
+  io.to(roomName).emit('message:delivered', {
+    conversationId,
+    messageId: message.id,
+    deliveredAt: new Date().toISOString(),
+  });
 
   logger.debug('socket:message:send', {
     socketId: socket.id,
@@ -369,6 +374,7 @@ async function handleMessageEdit(
 
   const payload = await serializeMessagePayload(updated, true);
   io.to(conversationRoom(message.conversationId)).emit('message:updated', payload);
+  io.to(conversationRoom(message.conversationId)).emit('message:edit', payload);
 
   logger.debug('socket:message:edit', {
     socketId: socket.id,
@@ -445,6 +451,11 @@ async function handleMessageDelete(
 
   const roomName = conversationRoom(message.conversationId);
   io.to(roomName).emit('message:deleted', {
+    messageId,
+    conversationId: message.conversationId,
+    deletedBy: userId,
+  });
+  io.to(roomName).emit('message:delete', {
     messageId,
     conversationId: message.conversationId,
     deletedBy: userId,
@@ -533,6 +544,21 @@ async function handleMessageReact(
     });
   }
 
+  const roomName = conversationRoom(message.conversationId);
+  if (existingReaction) {
+    io.to(roomName).emit('reaction:remove', {
+      messageId,
+      userId,
+      emoji,
+    });
+  } else {
+    io.to(roomName).emit('reaction:add', {
+      messageId,
+      userId,
+      emoji,
+    });
+  }
+
   // Fetch all reactions for this message
   const reactions = await prisma.messageReaction.findMany({
     where: { messageId },
@@ -550,7 +576,7 @@ async function handleMessageReact(
     emoji: r.emoji,
   }));
 
-  io.to(conversationRoom(message.conversationId)).emit('reaction:updated', {
+  io.to(roomName).emit('reaction:updated', {
     messageId,
     reactions: reactionPayloads,
   });
@@ -586,6 +612,11 @@ async function handleTypingStart(
     userId,
     isTyping: true,
   });
+  socket.to(roomName).emit('typing:start', {
+    conversationId,
+    userId,
+    isTyping: true,
+  });
 
   // Auto-stop typing after TYPING_DEBOUNCE_MS
   const timerKey = `${socket.id}:${conversationId}`;
@@ -593,6 +624,11 @@ async function handleTypingStart(
     timerKey,
     setTimeout(() => {
       socket.to(roomName).emit('typing:indicator', {
+        conversationId,
+        userId,
+        isTyping: false,
+      });
+      socket.to(roomName).emit('typing:stop', {
         conversationId,
         userId,
         isTyping: false,
@@ -615,6 +651,11 @@ async function handleTypingStop(
   clearTypingTimer(socket.id, conversationId);
 
   socket.to(conversationRoom(conversationId)).emit('typing:indicator', {
+    conversationId,
+    userId,
+    isTyping: false,
+  });
+  socket.to(conversationRoom(conversationId)).emit('typing:stop', {
     conversationId,
     userId,
     isTyping: false,
@@ -820,6 +861,14 @@ export function registerMessengerHandlers(io: HoneyIOServer): void {
     });
 
     socket.on('message:react', (data: MessageReactData) => {
+      void handleMessageReact(io, socket, data);
+    });
+
+    socket.on('reaction:add', (data: MessageReactData) => {
+      void handleMessageReact(io, socket, data);
+    });
+
+    socket.on('reaction:remove', (data: MessageReactData) => {
       void handleMessageReact(io, socket, data);
     });
 

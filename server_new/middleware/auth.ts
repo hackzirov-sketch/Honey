@@ -1,11 +1,17 @@
-import { Request, Response, NextFunction } from 'express';
+﻿import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
+import { prisma } from '../config/prisma';
 import { AuthError, ForbiddenError } from '../errors';
-import { JwtPayload, AuthenticatedRequest, MemberRole } from '../types';
+import { AuthenticatedRequest, MemberRole } from '../types';
 import { logger } from '../utils/logger';
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+interface AccessTokenPayload {
+  userId: string;
+  username: string;
+  type: 'access' | 'refresh';
+  jti?: string;
+}
 
 function extractToken(header: string | undefined): string | null {
   if (!header) return null;
@@ -14,9 +20,9 @@ function extractToken(header: string | undefined): string | null {
   return parts[1];
 }
 
-function verifyToken(token: string): JwtPayload {
+function verifyToken(token: string): AccessTokenPayload {
   try {
-    const decoded = jwt.verify(token, config.JWT_SECRET) as JwtPayload;
+    const decoded = jwt.verify(token, config.JWT_SECRET) as AccessTokenPayload;
     if (decoded.type !== 'access') {
       throw new AuthError('Invalid token type');
     }
@@ -27,37 +33,77 @@ function verifyToken(token: string): JwtPayload {
   }
 }
 
-// ─── Middleware ─────────────────────────────────────────────────────────────────
+async function buildAuthUser(payload: AccessTokenPayload): Promise<AuthenticatedRequest['user']> {
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      isVerified: true,
+      isStaff: true,
+      isSuperuser: true,
+      isBanned: true,
+    },
+  });
 
-/**
- * Verify JWT from the Authorization header and attach the payload to
- * `req.user`.  Rejects the request with 401 when authentication fails.
- */
-export function authenticate(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): void {
-  const token = extractToken(req.headers.authorization);
-  if (!token) {
-    throw new AuthError('Authorization header missing');
+  if (!user) {
+    throw new AuthError('User not found');
   }
 
-  const payload = verifyToken(token);
-  (req as AuthenticatedRequest).user = payload;
-  next();
+  if (user.isBanned) {
+    throw new AuthError('This account has been suspended');
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    isVerified: user.isVerified,
+    isStaff: user.isStaff,
+    isSuperuser: user.isSuperuser,
+  };
 }
 
 /**
- * Same as `authenticate` but does **not** reject the request when no token
- * is present.  If a valid token is found, `req.user` will be set; otherwise
- * the request continues as unauthenticated.
+ * Verify JWT from the Authorization header and attach a normalized authenticated
+ * user object to `req.user`.
  */
-export function optionalAuth(
+export async function authenticate(
   req: Request,
   _res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
+  try {
+    const token = extractToken(req.headers.authorization);
+    if (!token) {
+      throw new AuthError('Authorization header missing');
+    }
+
+    const payload = verifyToken(token);
+    const authReq = req as AuthenticatedRequest & {
+      userId?: string;
+      sessionJti?: string;
+    };
+
+    authReq.user = await buildAuthUser(payload);
+    authReq.userId = authReq.user.id;
+    authReq.sessionJti = payload.jti;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Same as `authenticate` but does not reject when token is absent or invalid.
+ */
+export async function optionalAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
   const token = extractToken(req.headers.authorization);
   if (!token) {
     next();
@@ -66,9 +112,15 @@ export function optionalAuth(
 
   try {
     const payload = verifyToken(token);
-    (req as AuthenticatedRequest).user = payload;
+    const authReq = req as AuthenticatedRequest & {
+      userId?: string;
+      sessionJti?: string;
+    };
+
+    authReq.user = await buildAuthUser(payload);
+    authReq.userId = authReq.user.id;
+    authReq.sessionJti = payload.jti;
   } catch {
-    // Silently ignore – user is treated as unauthenticated
     logger.debug('optionalAuth: invalid token, continuing unauthenticated');
   }
 
@@ -76,23 +128,22 @@ export function optionalAuth(
 }
 
 /**
- * Require one or more specific roles.  Must be placed **after** `authenticate`.
- *
- * @example router.delete('/users/:id', authenticate, requireRole('admin'), handler)
+ * Require one or more specific roles.
  */
 export function requireRole(...roles: MemberRole[]) {
   return (req: Request, _res: Response, next: NextFunction): void => {
     const user = (req as AuthenticatedRequest).user;
-    // This should never happen if middleware is ordered correctly
     if (!user) {
       throw new AuthError('Authentication required');
     }
 
-    // In the future `user.role` can be added to the JWT payload.
-    // For now we accept a `role` claim that may be present on the token.
-    const userRole = (user as JwtPayload & { role?: MemberRole }).role;
+    const normalizedRoles: MemberRole[] = [];
+    if (user.isSuperuser) normalizedRoles.push('OWNER');
+    if (user.isStaff) normalizedRoles.push('ADMIN');
+    normalizedRoles.push('MEMBER');
 
-    if (!userRole || !roles.includes(userRole)) {
+    const allowed = roles.some((role) => normalizedRoles.includes(role));
+    if (!allowed) {
       throw new ForbiddenError(
         `Requires one of the following roles: ${roles.join(', ')}`,
       );
@@ -104,11 +155,6 @@ export function requireRole(...roles: MemberRole[]) {
 
 /**
  * Resource-level ownership check.
- *
- * `getResourceId` extracts an identifier from the request (e.g. `req.params.id`).
- * `getOwnerId` asynchronously resolves that identifier to an owner userId string.
- *
- * Must be placed **after** `authenticate`.
  */
 export function authorizeResource(
   getResourceId: (req: Request) => string,
@@ -128,7 +174,7 @@ export function authorizeResource(
       const resourceId = getResourceId(req);
       const ownerId = await getOwnerId(resourceId);
 
-      if (ownerId !== user.userId) {
+      if (ownerId !== user.id) {
         throw new ForbiddenError('You do not own this resource');
       }
 

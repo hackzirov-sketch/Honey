@@ -1,0 +1,16 @@
+
+> rest-express@1.0.0 dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+[1G[0K12:27:55 PM [express] ✅ Server DEV rejimida ishga tushdi: http://0.0.0.0:5000
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+12:28:10 PM [express] GET /api/v1/chat/chats/ 401 in 5ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}
+12:28:10 PM [express] GET /api/v1/chat/groups/ 401 in 1ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}
+12:28:12 PM [express] GET /api/v1/chat/chats/ 401 in 1ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}
+12:28:12 PM [express] GET /api/v1/chat/groups/ 401 in 0ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}
+12:30:31 PM [express] GET /api/v1/chat/groups/ 401 in 2ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}
+12:30:31 PM [express] GET /api/v1/chat/chats/ 401 in 2ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}
+12:30:35 PM [express] GET /api/v1/auth/profile/ 401 in 2ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}
+12:30:35 PM [express] GET /api/v1/auth/profile/stats/ 401 in 2ms :: {"detail":"Token is invalid or expired","message":"Token is invalid or expired"}

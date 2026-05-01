@@ -17,6 +17,11 @@ interface AppState {
   setUser: (user: User | null) => void
   isAuthenticated: boolean
   setIsAuthenticated: (val: boolean) => void
+  authToken: string | null
+  refreshToken: string | null
+  setAuthSession: (input: { user: User; accessToken: string; refreshToken: string }) => void
+  clearAuthSession: () => void
+  hydrateAuthFromStorage: () => void
 
   // Notifications
   notifications: Notification[]
@@ -54,9 +59,69 @@ export const useAppStore = create<AppState>((set) => ({
 
   // Auth & User
   user: null,
-  setUser: (user) => set({ user, isAuthenticated: !!user }),
+  setUser: (user) =>
+    set((state) => ({
+      user,
+      isAuthenticated: !!user || !!state.authToken,
+    })),
   isAuthenticated: false,
   setIsAuthenticated: (val) => set({ isAuthenticated: val }),
+  authToken: null,
+  refreshToken: null,
+  setAuthSession: ({ user, accessToken, refreshToken }) =>
+    set(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('honey_access_token', accessToken)
+        localStorage.setItem('honey_refresh_token', refreshToken)
+        localStorage.setItem('honey_user', JSON.stringify(user))
+      }
+      return {
+        user,
+        authToken: accessToken,
+        refreshToken,
+        isAuthenticated: true,
+      }
+    }),
+  clearAuthSession: () =>
+    set(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('honey_access_token')
+        localStorage.removeItem('honey_refresh_token')
+        localStorage.removeItem('honey_user')
+      }
+      return {
+        user: null,
+        authToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+      }
+    }),
+  hydrateAuthFromStorage: () =>
+    set(() => {
+      if (typeof window === 'undefined') {
+        return {}
+      }
+
+      const accessToken = localStorage.getItem('honey_access_token')
+      const storedRefreshToken = localStorage.getItem('honey_refresh_token')
+      const storedUser = localStorage.getItem('honey_user')
+
+      let parsedUser: User | null = null
+      if (storedUser) {
+        try {
+          parsedUser = JSON.parse(storedUser) as User
+        } catch {
+          parsedUser = null
+        }
+      }
+
+      return {
+        user: parsedUser,
+        authToken: accessToken,
+        refreshToken: storedRefreshToken,
+        isAuthenticated: Boolean(accessToken),
+      }
+    }),
 
   // Notifications
   notifications: [],

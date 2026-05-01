@@ -446,7 +446,7 @@ export interface WebSocketEvent {
 }
 
 // ---- Tab Types ----
-export type AppTab = 'home' | 'hub' | 'meet' | 'streams' | 'feed' | 'explore' | 'files' | 'profile' | 'settings' | 'notifications';
+export type AppTab = 'home' | 'hub' | 'meet' | 'streams' | 'feed' | 'explore' | 'library' | 'files' | 'profile' | 'settings' | 'notifications';
 
 // ---- Settings Types ----
 export interface AppSettings {

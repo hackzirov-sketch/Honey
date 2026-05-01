@@ -14,28 +14,38 @@ import {
   Chrome,
   Apple,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { HoneyLogo } from '@/components/honey-logo'
 import { useAppStore } from '@/lib/store'
-import { fadeInUp, springPresets } from '@/lib/motion'
+import { fadeInUp } from '@/lib/motion'
+import { loginWithApi } from '@/lib/api-client'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { toggleTheme, theme } = useAppStore()
+  const { toggleTheme, theme, setAuthSession } = useAppStore()
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [focusedField, setFocusedField] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    setErrorMessage(null)
     setIsLoading(true)
-    // Simulate login delay
-    await new Promise((r) => setTimeout(r, 1500))
-    setIsLoading(false)
-    router.push('/')
+    try {
+      const session = await loginWithApi({
+        emailOrUsername: email.trim(),
+        password,
+      })
+      setAuthSession(session)
+      router.push('/')
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Login failed')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -97,16 +107,16 @@ export default function LoginPage() {
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
               <Mail className="w-3 h-3" />
-              Email
+              Email or Username
             </label>
             <div className="relative">
               <Input
-                type="email"
+                type="text"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onFocus={() => setFocusedField('email')}
                 onBlur={() => setFocusedField(null)}
-                placeholder="your@email.com"
+                placeholder="your@email.com or @username"
                 className="bg-transparent h-12 rounded-xl pl-4 text-sm transition-all duration-200"
                 style={{
                   boxShadow: focusedField === 'email'
@@ -156,6 +166,12 @@ export default function LoginPage() {
               Forgot password?
             </button>
           </div>
+
+          {errorMessage && (
+            <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+              {errorMessage}
+            </p>
+          )}
 
           {/* Submit Button */}
           <motion.button

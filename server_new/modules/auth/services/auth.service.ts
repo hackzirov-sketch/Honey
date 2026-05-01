@@ -283,7 +283,7 @@ export const authService = {
     }
 
     // ── Check if revoked ─────────────────────────────────────────────────────
-    if (!session.isActive) {
+    if (session.isRevoked) {
       throw new AuthError("Refresh token has been revoked");
     }
 
@@ -426,7 +426,7 @@ export const authService = {
       });
 
       // Revoke all sessions (force re-login on all devices)
-      await tx.session.updateMany({
+      await tx.refreshToken.updateMany({
         where: { userId, isRevoked: false },
         data: { isRevoked: true },
       });
@@ -510,7 +510,7 @@ export const authService = {
       });
 
       // Revoke all active sessions (force re-login everywhere)
-      await tx.session.updateMany({
+      await tx.refreshToken.updateMany({
         where: { userId: resetRecord.userId, isRevoked: false },
         data: { isRevoked: true },
       });
@@ -543,7 +543,6 @@ export const authService = {
           isBanned: true,
           email: `deleted_${anonymizedSuffix}@honey.invalid`,
           username: `deleted_${anonymizedSuffix}`,
-          username: null,
           bio: null,
           avatarUrl: null,
           bannerUrl: null,
@@ -562,7 +561,6 @@ export const authService = {
           location: null,
           firstName: null,
           lastName: null,
-          username: null,
         },
         update: {
           bio: null,
@@ -571,13 +569,12 @@ export const authService = {
           location: null,
           firstName: null,
           lastName: null,
-          username: null,
           socialLinks: null,
         },
       });
 
       // Deactivate all sessions
-      await tx.session.updateMany({
+      await tx.refreshToken.updateMany({
         where: { userId },
         data: { isRevoked: true },
       });

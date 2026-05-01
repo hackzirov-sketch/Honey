@@ -60,6 +60,26 @@ export const ForgotPasswordDtoSchema = z.object({
 
 export type ForgotPasswordDto = z.infer<typeof ForgotPasswordDtoSchema>;
 
+// ─── Email Verification ──────────────────────────────────────────────────────
+
+export const RequestEmailVerificationDtoSchema = z.object({
+  email: z.string().email("Invalid email address").optional(),
+});
+
+export type RequestEmailVerificationDto = z.infer<typeof RequestEmailVerificationDtoSchema>;
+
+export const VerifyEmailDtoSchema = z
+  .object({
+    token: z.string().min(1, "Token is required").optional(),
+    code: z.string().min(1, "Code is required").optional(),
+  })
+  .refine(
+    (value) => Boolean(value.token || value.code),
+    "Either token or code is required",
+  );
+
+export type VerifyEmailDto = z.infer<typeof VerifyEmailDtoSchema>;
+
 // ─── Reset Password ───────────────────────────────────────────────────────────
 
 export const ResetPasswordDtoSchema = z.object({

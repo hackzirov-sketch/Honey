@@ -45,6 +45,13 @@ import { fileRoutes } from './modules/files/routes/file.routes';
 import { privacyRoutes } from './modules/privacy/routes/privacy.routes';
 import { auditRoutes } from './modules/audit/routes/audit.routes';
 import { adminRoutes } from './modules/admin/routes/admin.routes';
+import { integrationRoutes } from './modules/integrations/routes/integration.routes';
+import {
+  legacyChatRoutes,
+  legacyLiveRoutes,
+  legacyVideoRoutes,
+  legacyCommentRoutes,
+} from './modules/compat/routes/legacy.routes';
 
 // ─── App Bootstrap ───────────────────────────────────────────────────────────
 
@@ -81,6 +88,11 @@ app.use('/api/v1/files', fileRoutes);
 app.use('/api/v1/privacy', privacyRoutes);
 app.use('/api/v1/audit', auditRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/integrations', integrationRoutes);
+app.use('/api/v1/chat', legacyChatRoutes);
+app.use('/api/v1/live', legacyLiveRoutes);
+app.use('/api/v1/video', legacyVideoRoutes);
+app.use('/api/v1/comment', legacyCommentRoutes);
 
 // 5. 404 catch-all for unmatched API routes
 app.use('/api', (_req, res) => {
@@ -146,6 +158,7 @@ async function initServer(): Promise<void> {
         'GET  /api/v1/privacy',
         'PATCH /api/v1/privacy',
         'GET  /api/v1/admin/stats',
+        'GET  /api/v1/integrations/status',
       ],
     });
   });

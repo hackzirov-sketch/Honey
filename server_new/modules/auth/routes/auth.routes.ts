@@ -1,6 +1,6 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import { authRateLimiter } from "../../../middleware/rateLimit";
-import { authenticate } from "../guards/auth.guard";
+import { authenticate, optionalAuth } from "../guards/auth.guard";
 import { authController } from "../controllers/auth.controller";
 
 const router = Router();
@@ -29,6 +29,17 @@ router.post("/login", authRateLimiter, authController.login);
 router.post("/refresh", authRateLimiter, authController.refresh);
 
 /**
+ * POST /verify-email/request
+ * Request email verification token (auth optional).
+ */
+router.post(
+  "/verify-email/request",
+  authRateLimiter,
+  optionalAuth,
+  authController.requestEmailVerification,
+);
+
+/**
  * POST /forgot-password
  * Request a password reset email.
  * Rate limited to prevent email spam.
@@ -41,6 +52,34 @@ router.post("/forgot-password", authRateLimiter, authController.forgotPassword);
  * Not rate-limited separately (token acts as protection).
  */
 router.post("/reset-password", authController.resetPassword);
+
+// Legacy compatibility: old clients used /token/refresh with refresh or refresh_token body key
+router.post(
+  "/token/refresh",
+  authRateLimiter,
+  (req: Request, res: Response, next: NextFunction) => {
+    const refreshToken =
+      typeof req.body?.refreshToken === "string"
+        ? req.body.refreshToken
+        : typeof req.body?.refresh === "string"
+          ? req.body.refresh
+          : typeof req.body?.refresh_token === "string"
+            ? req.body.refresh_token
+            : "";
+    req.body = { refreshToken };
+    authController.refresh(req, res, next);
+  },
+);
+
+// Legacy compatibility: email verification was required in old backend
+router.post("/verify-email", authRateLimiter, authController.verifyEmail);
+router.post("/email/verify", authRateLimiter, authController.verifyEmail);
+router.post(
+  "/email/verify/request",
+  authRateLimiter,
+  optionalAuth,
+  authController.requestEmailVerification,
+);
 
 // ─── Protected Routes (require authentication) ───────────────────────────────
 
@@ -62,6 +101,10 @@ router.get("/me", authenticate, authController.me);
  */
 router.patch("/profile", authenticate, authController.updateProfile);
 
+// Legacy compatibility aliases
+router.get("/profile", authenticate, authController.me);
+router.patch("/profile/update", authenticate, authController.updateProfile);
+
 /**
  * PATCH /password
  * Change the authenticated user's password.
@@ -69,11 +112,47 @@ router.patch("/profile", authenticate, authController.updateProfile);
  */
 router.patch("/password", authenticate, authController.changePassword);
 
+// Legacy compatibility: old body keys old_password/new_password/confirm_password
+router.post(
+  "/profile/change-password",
+  authenticate,
+  (req: Request, res: Response, next: NextFunction) => {
+    req.body = {
+      currentPassword:
+        typeof req.body?.currentPassword === "string"
+          ? req.body.currentPassword
+          : typeof req.body?.old_password === "string"
+            ? req.body.old_password
+            : "",
+      newPassword:
+        typeof req.body?.newPassword === "string"
+          ? req.body.newPassword
+          : typeof req.body?.new_password === "string"
+            ? req.body.new_password
+            : "",
+    };
+    authController.changePassword(req, res, next);
+  },
+);
+
 /**
  * DELETE /account
  * Soft-delete the authenticated user's account.
  */
 router.delete("/account", authenticate, authController.deleteAccount);
+router.delete("/profile/delete", authenticate, authController.deleteAccount);
+
+router.get("/profile/stats", authenticate, (_req, res) => {
+  res.json({
+    success: true,
+    data: {
+      books_count: 0,
+      messages_count: 0,
+      live_sessions_count: 0,
+      achievements_count: 0,
+    },
+  });
+});
 
 // ─── Session Management (require authentication) ──────────────────────────────
 

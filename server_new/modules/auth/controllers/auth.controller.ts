@@ -1,6 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../../../errors";
+import { ZodError } from "zod";
+import { config } from "../../../config";
 import { authService, type AuthenticatedUser, type TokenPair, type SessionInfo } from "../services/auth.service";
+import { authRecoveryService } from "../services/auth-recovery.service";
 import {
   RegisterDtoSchema,
   LoginDtoSchema,
@@ -8,6 +11,8 @@ import {
   ChangePasswordDtoSchema,
   ForgotPasswordDtoSchema,
   ResetPasswordDtoSchema,
+  RequestEmailVerificationDtoSchema,
+  VerifyEmailDtoSchema,
   UpdateProfileDtoSchema,
 } from "../dto/auth.dto";
 import type {
@@ -17,6 +22,8 @@ import type {
   ChangePasswordDto,
   ForgotPasswordDto,
   ResetPasswordDto,
+  RequestEmailVerificationDto,
+  VerifyEmailDto,
   UpdateProfileDto,
 } from "../dto/auth.dto";
 
@@ -43,7 +50,21 @@ function sendSuccess(res: Response, data: unknown, statusCode: number = 200): vo
 // ─── Zod validation helper ───────────────────────────────────────────────────
 
 function parseDto<T>(schema: { parse: (data: unknown) => T }, body: unknown): T {
-  return schema.parse(body);
+  try {
+    return schema.parse(body);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const details: Record<string, string[]> = {};
+      const fieldErrors = error.flatten().fieldErrors;
+      for (const [field, messages] of Object.entries(fieldErrors)) {
+        if (messages && messages.length > 0) {
+          details[field] = messages;
+        }
+      }
+      throw new AppError("Validation failed", 400, "VALIDATION_ERROR", details);
+    }
+    throw error;
+  }
 }
 
 // ─── Auth Controllers ────────────────────────────────────────────────────────
@@ -117,6 +138,89 @@ export const authController = {
   },
 
   /**
+   * POST /verify-email/request
+   * Generate and send an email verification token.
+   * - If authenticated: uses current user's email.
+   * - If unauthenticated: requires email in body.
+   */
+  requestEmailVerification(req: Request, res: Response, next: NextFunction): void {
+    try {
+      const dto: RequestEmailVerificationDto = parseDto(
+        RequestEmailVerificationDtoSchema,
+        req.body ?? {},
+      );
+
+      const userId = req.userId;
+
+      const task = userId
+        ? authRecoveryService.issueEmailVerificationForUserId(userId)
+        : dto.email
+          ? authRecoveryService.requestEmailVerificationByEmail(dto.email)
+          : Promise.reject(
+              new AppError(
+                "Email is required when unauthenticated",
+                400,
+                "VALIDATION_ERROR",
+              ),
+            );
+
+      void task
+        .then((result) =>
+          sendSuccess(
+            res,
+            {
+              message:
+                "If an account exists and is not verified, a verification email has been sent",
+              ...(result.devToken && !config.isProduction
+                ? { devVerificationToken: result.devToken, expiresAt: result.expiresAt }
+                : {}),
+            },
+            200,
+          ),
+        )
+        .catch((error: unknown) => {
+          if (error instanceof AppError) return next(error);
+          next(error);
+        });
+    } catch (error) {
+      if (error instanceof AppError) return next(error);
+      next(error);
+    }
+  },
+
+  /**
+   * POST /verify-email
+   * Verify account email using token or code.
+   */
+  verifyEmail(req: Request, res: Response, next: NextFunction): void {
+    try {
+      const dto: VerifyEmailDto = parseDto(VerifyEmailDtoSchema, req.body ?? {});
+      const token = (dto.token ?? dto.code ?? "").trim();
+
+      void authRecoveryService
+        .verifyEmailToken(token)
+        .then((result) =>
+          sendSuccess(
+            res,
+            {
+              message: "Email verified successfully",
+              email: result.email,
+              userId: result.userId,
+            },
+            200,
+          ),
+        )
+        .catch((error: unknown) => {
+          if (error instanceof AppError) return next(error);
+          next(error);
+        });
+    } catch (error) {
+      if (error instanceof AppError) return next(error);
+      next(error);
+    }
+  },
+
+  /**
    * POST /logout
    * Requires authentication. Deactivates session and revokes refresh tokens.
    */
@@ -128,7 +232,7 @@ export const authController = {
       }
 
       void authService
-        .logout(userId, req.sessionJti ?? null)
+        .logout(userId, null)
         .then(() => sendSuccess(res, { message: "Logged out successfully" }, 200))
         .catch((error: unknown) => {
           if (error instanceof AppError) return next(error);
@@ -226,14 +330,17 @@ export const authController = {
     try {
       const dto: ForgotPasswordDto = parseDto(ForgotPasswordDtoSchema, req.body);
 
-      void authService
-        .forgotPassword(dto.email)
-        .then(() =>
+      void authRecoveryService
+        .requestPasswordReset(dto.email)
+        .then((result) =>
           sendSuccess(
             res,
             {
               message:
                 "If an account with this email exists, a reset link has been sent",
+              ...(result.devToken && !config.isProduction
+                ? { devResetToken: result.devToken, expiresAt: result.expiresAt }
+                : {}),
             },
             200,
           ),
@@ -256,8 +363,8 @@ export const authController = {
     try {
       const dto: ResetPasswordDto = parseDto(ResetPasswordDtoSchema, req.body);
 
-      void authService
-        .resetPassword(dto.token, dto.newPassword)
+      void authRecoveryService
+        .resetPasswordWithToken(dto.token, dto.newPassword)
         .then(() =>
           sendSuccess(
             res,
