@@ -17,6 +17,7 @@ import {
   BookOpen,
   FolderOpen,
   Settings,
+  Menu,
   X
 } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -68,7 +69,11 @@ const LEGACY_HASH_TO_TAB: Record<string, AppTab> = {
   '/messenger': 'hub',
   '/classroom': 'meet',
   '/media': 'streams',
+  '/feed': 'feed',
+  '/explore': 'explore',
   '/library': 'library',
+  '/files': 'files',
+  '/notifications': 'notifications',
   '/security': 'settings',
   '/profile': 'profile',
   '/settings': 'settings',
@@ -79,9 +84,13 @@ const TAB_TO_LEGACY_HASH: Partial<Record<AppTab, string>> = {
   hub: '/messenger',
   meet: '/classroom',
   streams: '/media',
+  feed: '/feed',
+  explore: '/explore',
   library: '/library',
+  files: '/files',
   settings: '/settings',
   profile: '/profile',
+  notifications: '/notifications',
 }
 
 const bottomNavItems: NavItem[] = [
@@ -235,6 +244,107 @@ function MobileBottomNav({ onNotifications }: { onNotifications: () => void }) {
       {/* Safe area spacing for iOS */}
       <div className="h-[env(safe-area-inset-bottom)]" />
     </nav>
+  )
+}
+
+// ============================================
+// Mobile Hamburger Navigation
+// ============================================
+function MobileNavigationSheet({
+  open,
+  onOpenChange,
+  onNotifications,
+  currentTab,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onNotifications: () => void
+  currentTab: AppTab
+}) {
+  const { setActiveTab, unreadCount, theme, toggleTheme } = useAppStore()
+
+  const selectTab = (tab: AppTab) => {
+    setActiveTab(tab)
+    onOpenChange(false)
+  }
+
+  const renderNavItem = (item: NavItem) => {
+    const Icon = item.icon
+    const isActive = currentTab === item.id
+
+    return (
+      <motion.button
+        key={item.id}
+        whileTap={{ scale: 0.97 }}
+        onClick={() => selectTab(item.id)}
+        className={cn(
+          'relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition-all',
+          isActive
+            ? 'border-honey/35 bg-honey/14 text-honey shadow-[inset_0_0_24px_rgba(255,184,0,0.12)]'
+            : 'border-honey/10 bg-black/24 text-[#D7BE83] hover:border-honey/25 hover:bg-honey/10 hover:text-[#F6E3B2]',
+        )}
+      >
+        <span className="flex h-9 w-9 items-center justify-center rounded-2xl border border-honey/15 bg-black/28">
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="flex-1">{item.label}</span>
+        {item.id === 'hub' && unreadCount > 0 && (
+          <span className="min-w-5 rounded-full bg-honey px-1.5 py-0.5 text-center text-[10px] font-bold text-[#261704]">
+            {unreadCount}
+          </span>
+        )}
+      </motion.button>
+    )
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" className="w-[300px] border-honey/20 bg-[linear-gradient(180deg,rgba(10,8,6,0.96),rgba(20,14,9,0.94))] p-0 text-[#F6E3B2] backdrop-blur-2xl sm:max-w-[340px]">
+        <SheetHeader className="border-b border-honey/12 p-4">
+          <SheetTitle className="flex items-center gap-3 text-[#FFE8A3]">
+            <HoneyLogo size="sm" animated={false} />
+            <span>Honey Menu</span>
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-3">
+          <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-honey">
+            Main
+          </p>
+          <div className="space-y-2">
+            {mainNavItems.map(renderNavItem)}
+          </div>
+
+          <p className="px-2 pb-2 pt-4 text-[10px] font-semibold uppercase tracking-[0.24em] text-honey">
+            Tools
+          </p>
+          <div className="space-y-2">
+            {secondaryNavItems.map(renderNavItem)}
+            {bottomNavItems.map(renderNavItem)}
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-2xl border border-honey/12 bg-black/24 px-3 py-3 text-sm font-semibold text-[#D7BE83]"
+            >
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onNotifications()
+                onOpenChange(false)
+              }}
+              className="rounded-2xl border border-honey/12 bg-black/24 px-3 py-3 text-sm font-semibold text-[#D7BE83]"
+            >
+              Alerts
+            </button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }
 
@@ -395,13 +505,21 @@ function DesktopSidebar({ onNotifications, notificationsOpen }: {
             <span>Log Out</span>
           </motion.button>
         ) : (
-          <a
-            href="/login"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-honey hover:text-honey-light hover:bg-honey/10 transition-all"
-          >
-            <User className="w-5 h-5" />
-            <span>Log In</span>
-          </a>
+          <div className="rounded-2xl border border-honey/15 bg-black/20 p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-honey">
+                Demo Mode
+              </span>
+              <span className="h-1.5 w-1.5 rounded-full bg-honey shadow-[0_0_10px_rgba(255,184,0,0.8)]" />
+            </div>
+            <a
+              href="/login"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-honey hover:text-honey-light hover:bg-honey/10 transition-all"
+            >
+              <User className="w-5 h-5" />
+              <span>Sign in to sync</span>
+            </a>
+          </div>
         )}
 
         {/* User info */}
@@ -435,7 +553,18 @@ export default function AppShell() {
     hydrateAuthFromStorage,
   } = useAppStore()
   const [notificationsOpen, setNotificationsOpen] = useState(false)
-  const showMobileBottomNav = activeTab !== 'hub'
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [currentHash, setCurrentHash] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return window.location.hash.startsWith('#')
+      ? window.location.hash.slice(1)
+      : window.location.hash
+  })
+  const hashTab = LEGACY_HASH_TO_TAB[currentHash]
+  const routedTab = hashTab ?? activeTab
+  const isImmersiveHash = currentHash === '/messenger' || currentHash === '/classroom'
+  const isImmersiveSection = routedTab === 'hub' || routedTab === 'meet' || isImmersiveHash
+  const showMobileBottomNav = !isImmersiveSection
 
   const isMounted = useSyncExternalStore(
     () => () => {},
@@ -453,6 +582,7 @@ export default function AppShell() {
       const syncFromHash = () => {
         const rawHash = window.location.hash
         const normalizedHash = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash
+        setCurrentHash(normalizedHash)
         const mapped = LEGACY_HASH_TO_TAB[normalizedHash]
         if (mapped) {
           setActiveTab(mapped)
@@ -495,6 +625,8 @@ export default function AppShell() {
       : window.location.hash
     if (currentHash !== legacyHash) {
       window.history.replaceState(null, '', `#${legacyHash}`)
+      // replaceState() does not trigger hashchange; keep state in sync for routing + immersive UI.
+      setCurrentHash(legacyHash)
     }
   }, [activeTab])
 
@@ -520,13 +652,22 @@ export default function AppShell() {
       <main className={cn(
         'flex-1 min-h-screen',
         // Full width for hub, meet sections (Telegram-style 3-panel)
-        (activeTab === 'hub' || activeTab === 'meet')
+        isImmersiveSection
           ? 'md:ml-64 lg:ml-72'
           : 'md:ml-64 lg:ml-72'
       )}>
         {/* Mobile Header */}
+        {!isImmersiveSection && (
         <header className="sticky top-0 z-30 md:hidden ios-frosted-bar">
           <div className="flex items-center justify-between px-4 py-3">
+            <motion.button
+              whileTap={{ scale: 0.94 }}
+              onClick={() => setMobileMenuOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-2xl border border-honey/18 bg-black/24 text-honey shadow-[0_8px_24px_rgba(0,0,0,0.18)]"
+              aria-label="Open mobile menu"
+            >
+              <Menu className="h-5 w-5" />
+            </motion.button>
             <HoneyLogo size="sm" animated={false} />
             <div className="flex items-center gap-2">
               <motion.button
@@ -555,11 +696,12 @@ export default function AppShell() {
             </div>
           </div>
         </header>
+        )}
 
         {/* Desktop top bar with notifications for non-hub/meet sections */}
-        {(activeTab !== 'hub' && activeTab !== 'meet') && (
+        {!isImmersiveSection && (
           <header className="hidden md:flex sticky top-0 z-30 items-center justify-between px-6 py-3 ios-frosted-bar">
-            <h2 className="text-lg font-bold capitalize">{activeTab}</h2>
+            <h2 className="text-lg font-bold capitalize">{routedTab}</h2>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setNotificationsOpen(true)}
@@ -577,18 +719,36 @@ export default function AppShell() {
 
         {/* Page Content */}
         <div className={cn(
-          (activeTab === 'hub' || activeTab === 'meet')
+          isImmersiveSection
             ? '' // Full width for hub and meet
             : 'max-w-4xl mx-auto'
         )}>
-          <ActiveSection tab={activeTab} />
+          <ActiveSection tab={routedTab} />
         </div>
       </main>
+
+      {isImmersiveSection && routedTab !== 'hub' && (
+        <motion.button
+          whileTap={{ scale: 0.94 }}
+          onClick={() => setMobileMenuOpen(true)}
+          className="fixed left-4 top-4 z-[130] flex h-11 w-11 items-center justify-center rounded-2xl border border-honey/20 bg-black/42 text-honey shadow-[0_12px_36px_rgba(0,0,0,0.28)] backdrop-blur-2xl lg:hidden"
+          aria-label="Open mobile menu"
+        >
+          <Menu className="h-5 w-5" />
+        </motion.button>
+      )}
 
       {/* Mobile Bottom Navigation */}
       {showMobileBottomNav && (
         <MobileBottomNav onNotifications={() => setNotificationsOpen(true)} />
       )}
+
+      <MobileNavigationSheet
+        open={mobileMenuOpen}
+        onOpenChange={setMobileMenuOpen}
+        onNotifications={() => setNotificationsOpen(true)}
+        currentTab={routedTab}
+      />
 
       {/* Notifications Sheet */}
       <Sheet open={notificationsOpen} onOpenChange={setNotificationsOpen}>

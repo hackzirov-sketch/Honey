@@ -121,12 +121,12 @@ export default function FeedSection() {
   }
 
   return (
-    <div className="space-y-4 p-4 md:p-6 pb-24 md:pb-6 relative">
+    <div className="honey-refined-section honey-page-shell relative space-y-4 p-4 md:p-6 pb-24 md:pb-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="glass-card flex items-center justify-between rounded-[24px] px-4 py-3"
       >
         <h1 className="text-xl font-bold text-gradient-honey">Feed</h1>
         <div className="flex items-center gap-2">
@@ -167,7 +167,7 @@ export default function FeedSection() {
             className="space-y-4"
           >
             {/* Feed Tabs */}
-            <div className="flex items-center gap-1 p-1 glass-card rounded-xl">
+            <div className="flex items-center gap-1 rounded-2xl border border-honey/10 bg-black/10 p-1.5 backdrop-blur-xl">
               {(['latest', 'popular', 'following'] as const).map((tab) => (
                 <button
                   key={tab}
@@ -209,14 +209,14 @@ export default function FeedSection() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.9 }}
         onClick={() => setShowCreatePost(true)}
-        className="fixed bottom-20 right-4 md:bottom-8 md:right-8 z-30 w-14 h-14 rounded-full ios-pill-filled flex items-center justify-center shadow-honey-lg"
+        className="fixed bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-[linear-gradient(135deg,#F2C66D,#E0A71D)] text-[#24180B] shadow-[0_16px_38px_rgba(224,167,29,0.34)] md:bottom-8 md:right-8"
       >
         <Plus className="w-6 h-6" />
       </motion.button>
 
       {/* Create Post Modal */}
       <Dialog open={showCreatePost} onOpenChange={setShowCreatePost}>
-        <DialogContent className="glass-premium sm:max-w-md border-honey/10 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="glass-premium honey-refined-dialog sm:max-w-md border-honey/10 max-h-[90vh] overflow-y-auto">
           <CreatePostForm onSubmit={addNewPost} onClose={() => setShowCreatePost(false)} />
         </DialogContent>
       </Dialog>

@@ -347,7 +347,7 @@ function LobbyScreen({ onJoin, onCreate }: { onJoin: () => void; onCreate: () =>
   const [copied, setCopied] = useState(false)
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
+    <div className="honey-meet-room min-h-screen flex flex-col items-center justify-center p-4 md:p-8">
       {/* Background decoration */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-honey/5 rounded-full blur-3xl" />
@@ -821,7 +821,7 @@ function MeetingRoom({
   const panelOpen = sidePanel !== 'none'
 
   return (
-    <div ref={meetingContainerRef} className="h-screen flex flex-col bg-[#111] overflow-hidden">
+    <div ref={meetingContainerRef} className="honey-meet-room h-screen flex flex-col overflow-hidden">
       {/* ---- FLOATING REACTIONS ---- */}
       {reactions.map(r => <FloatingReaction key={r.id} emoji={r.emoji} />)}
 
@@ -1524,7 +1524,7 @@ function MeetingRoom({
 
       {/* ---- END MEETING DIALOG ---- */}
       <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
-        <DialogContent className="glass-premium border-border max-w-sm">
+      <DialogContent className="glass-premium honey-refined-dialog border-border max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="w-5 h-5" />
@@ -1583,7 +1583,7 @@ function MeetingEndedScreen({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="honey-meet-room min-h-screen flex items-center justify-center p-4">
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/3 w-96 h-96 bg-honey/5 rounded-full blur-3xl" />
         <div className="absolute bottom-1/3 right-1/3 w-80 h-80 bg-amber/5 rounded-full blur-3xl" />
@@ -1712,7 +1712,7 @@ export default function MeetSection() {
   }, [meetingState])
 
   return (
-    <div className="h-full overflow-hidden">
+    <div className="honey-refined-section honey-meet-section h-full overflow-hidden">
       {meetingState === 'lobby' && (
         <LobbyScreen onJoin={handleJoin} onCreate={handleCreate} />
       )}

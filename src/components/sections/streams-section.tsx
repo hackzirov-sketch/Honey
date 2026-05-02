@@ -232,12 +232,12 @@ export default function StreamsSection() {
   })
 
   return (
-    <div className="space-y-6 p-4 md:p-6 pb-24 md:pb-6">
+    <div className="honey-refined-section honey-page-shell space-y-6 p-4 md:p-6 pb-24 md:pb-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="glass-card flex items-center justify-between rounded-[24px] px-4 py-3"
       >
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-bold text-gradient-honey">Streams</h1>
@@ -260,13 +260,13 @@ export default function StreamsSection() {
             <DialogTrigger asChild>
               <motion.button
                 whileTap={{ scale: 0.95 }}
-                className="flex items-center gap-1.5 px-3 py-2 bg-honey text-background rounded-xl text-xs font-semibold shadow-honey"
+              className="flex items-center gap-1.5 rounded-2xl bg-[linear-gradient(135deg,#F2C66D,#E0A71D)] px-3 py-2 text-xs font-semibold text-[#24180B] shadow-[0_14px_34px_rgba(224,167,29,0.28)]"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Create Stream
               </motion.button>
             </DialogTrigger>
-            <DialogContent className="glass-premium sm:max-w-md border-honey/10 max-h-[90vh] overflow-y-auto">
+            <DialogContent className="glass-premium honey-refined-dialog sm:max-w-md border-honey/10 max-h-[90vh] overflow-y-auto">
               <CreateStreamForm onClose={() => setShowCreateModal(false)} />
             </DialogContent>
           </Dialog>

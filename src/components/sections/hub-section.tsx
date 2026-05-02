@@ -33,6 +33,7 @@ import {
   ImageIcon,
   FileText,
   Link2,
+  User,
   Users,
   ShieldCheck,
   Clock,
@@ -44,9 +45,10 @@ import {
   Download,
   Square,
 } from 'lucide-react'
-import { mockChats, mockMessages, mockUsers } from '@/lib/mock-data'
+import { mockChats, mockMessages, mockStories, mockUsers } from '@/lib/mock-data'
 import { cn, generateAvatar, formatTime, getInitials, generateId, truncateText } from '@/lib/utils'
-import type { Attachment, Chat, Message, MessageReaction } from '@/types'
+import type { AppTab, Attachment, Chat, Message, MessageReaction } from '@/types'
+import { useAppStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -83,13 +85,35 @@ import { messageBubble, reactionPop, buttonHover, staggerContainer, staggerItem,
 const CURRENT_USER_ID = 'u1'
 const STORAGE_KEY_CHATS = 'honey_chats'
 const STORAGE_KEY_MESSAGES = 'honey_messages'
+const INDEXED_DB_NAME = 'honey-hub-cache'
+const INDEXED_DB_STORE = 'hub-state'
+const INDEXED_DB_MESSAGES_KEY = 'messages'
 const MAX_CACHED_MESSAGES = 10
+const REVERSE_SCROLL_PAGE_SIZE = 18
 const QUICK_EMOJIS = ['👍', '❤️', '🔥', '😂', '😍', '😮', '🎉', '💯', '👏', '🥰', '😎', '🤝']
 const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
   { label: 'Popular', emojis: ['👍', '❤️', '🔥', '😂', '😍', '😮', '🎉', '💯', '👏', '🤝', '🙏', '✨'] },
   { label: 'Mood', emojis: ['😊', '😎', '🥹', '🤩', '😴', '🤯', '😇', '🥳', '😤', '😢', '🤔', '🤗'] },
   { label: 'Telegram Style', emojis: ['👌', '🤍', '💙', '⚡', '🫡', '🥰', '👀', '💔', '🤣', '🤌', '🙌', '🚀'] },
   { label: 'Extra', emojis: ['🍯', '📌', '🎧', '🎬', '📸', '🫶', '🌙', '☀️', '🏆', '💬', '🧠', '🎯'] },
+]
+const DEMO_STORY_CAPTIONS = [
+  'Morning setup with a liquid gold desk glow',
+  'Building Honey micro-interactions today',
+  'Behind the scenes from the studio',
+  'New idea board is almost ready',
+  'Quick preview from the product lab',
+  'Design sprint notes and golden details',
+  'A calm workflow before the next launch',
+  'Tiny polish pass for a premium feel',
+  'Fresh concept, fresh energy',
+]
+const DEMO_STORY_TONES = [
+  'radial-gradient(circle at 25% 18%, rgba(255,232,166,0.72), transparent 26%), linear-gradient(145deg, #100B05, #8A5E07 58%, #171006)',
+  'radial-gradient(circle at 70% 18%, rgba(255,184,0,0.7), transparent 30%), linear-gradient(145deg, #080706, #3B2A0C 50%, #BF7F00)',
+  'radial-gradient(circle at 30% 72%, rgba(246,227,178,0.42), transparent 32%), linear-gradient(145deg, #0A0908, #2A2114 55%, #D8A423)',
+  'radial-gradient(circle at 72% 32%, rgba(255,214,118,0.62), transparent 28%), linear-gradient(145deg, #0C0805, #5A3D06 54%, #120D07)',
+  'radial-gradient(circle at 45% 26%, rgba(255,245,213,0.52), transparent 26%), linear-gradient(145deg, #0D0B08, #73500C 52%, #1F1609)',
 ]
 const TYPING_TIMEOUT = 3000
 const SIMULATED_TYPING_INTERVAL = 8000
@@ -104,6 +128,85 @@ const VOICE_MIME_CANDIDATES = [
 type FilterTab = 'all' | 'private' | 'groups' | 'channels' | 'unread'
 type MobileView = 'list' | 'chat' | 'info'
 type EmojiPickerMode = 'reaction' | 'composer'
+
+interface NormalizedMessages {
+  entities: Record<string, Message>
+  order: string[]
+}
+
+function normalizeMessages(items: Message[]): NormalizedMessages {
+  const entities: Record<string, Message> = {}
+  const order: string[] = []
+
+  items.forEach((message) => {
+    if (!entities[message.id]) order.push(message.id)
+    entities[message.id] = message
+  })
+
+  order.sort((a, b) => {
+    const first = entities[a]
+    const second = entities[b]
+    return new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime()
+  })
+
+  return { entities, order }
+}
+
+function denormalizeMessages(state: NormalizedMessages): Message[] {
+  return state.order.map((id) => state.entities[id]).filter(Boolean)
+}
+
+function mergeMessages(base: Message[], incoming: Message[]): Message[] {
+  return denormalizeMessages(normalizeMessages([...base, ...incoming]))
+}
+
+function openHubCacheDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(INDEXED_DB_NAME, 1)
+
+    request.onupgradeneeded = () => {
+      const db = request.result
+      if (!db.objectStoreNames.contains(INDEXED_DB_STORE)) {
+        db.createObjectStore(INDEXED_DB_STORE)
+      }
+    }
+
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(request.error)
+  })
+}
+
+async function readCachedMessagesFromIndexedDb(): Promise<Message[]> {
+  if (typeof indexedDB === 'undefined') return []
+
+  const db = await openHubCacheDb()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(INDEXED_DB_STORE, 'readonly')
+    const request = tx.objectStore(INDEXED_DB_STORE).get(INDEXED_DB_MESSAGES_KEY)
+
+    request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : [])
+    request.onerror = () => reject(request.error)
+    tx.oncomplete = () => db.close()
+  })
+}
+
+async function writeCachedMessagesToIndexedDb(messages: Message[]): Promise<void> {
+  if (typeof indexedDB === 'undefined') return
+
+  const db = await openHubCacheDb()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(INDEXED_DB_STORE, 'readwrite')
+    tx.objectStore(INDEXED_DB_STORE).put(messages, INDEXED_DB_MESSAGES_KEY)
+    tx.oncomplete = () => {
+      db.close()
+      resolve()
+    }
+    tx.onerror = () => {
+      db.close()
+      reject(tx.error)
+    }
+  })
+}
 
 // ============================================
 // Helper Functions
@@ -380,7 +483,7 @@ function VoiceMessageBubble({
         className={cn(
           'w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors',
           isOwn
-            ? 'bg-black/10 hover:bg-black/20 text-[#2B1A00]'
+            ? 'bg-honey/15 hover:bg-honey/25 text-honey'
             : 'bg-honey/20 hover:bg-honey/30 text-honey',
         )}
       >
@@ -403,7 +506,7 @@ function VoiceMessageBubble({
         <div
           className={cn(
             'absolute inset-y-0 left-0 rounded-full transition-[width] duration-200',
-            isOwn ? 'bg-black/10' : 'bg-honey/12',
+            isOwn ? 'bg-honey/14' : 'bg-honey/12',
           )}
           style={{ width: `${progress * 100}%` }}
         />
@@ -441,7 +544,7 @@ function VoiceMessageBubble({
       {/* Duration display */}
       <span className={cn(
         'text-[10px] shrink-0 tabular-nums',
-        isOwn ? 'text-[#5C3C03]/85' : 'text-muted-foreground',
+        isOwn ? 'text-[#C9A85C]/85' : 'text-muted-foreground',
       )}>
         {formattedDuration}
       </span>
@@ -513,7 +616,7 @@ function MessageReactions({
             className={cn(
               'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-all',
               isUserReacted
-                ? 'bg-honey/25 border-honey/50 text-[#2B1A00] dark:text-honey shadow-[0_0_12px_rgba(255,184,0,0.22)]'
+                ? 'bg-honey/25 border-honey/50 text-honey shadow-[0_0_12px_rgba(255,184,0,0.22)]'
                 : 'bg-background/65 border-border/60 text-muted-foreground hover:text-foreground hover:border-honey/40',
               justPopped && 'animate-heart-pop',
             )}
@@ -719,7 +822,7 @@ function AttachmentCard({
       </div>
       <div className="min-w-0">
         <p className="truncate text-xs font-medium">{attachment.name}</p>
-        <p className={cn('text-[10px]', isOwn ? 'text-[#5C3C03]/75' : 'text-muted-foreground')}>
+              <p className={cn('text-[10px]', isOwn ? 'text-[#C9A85C]/75' : 'text-muted-foreground')}>
           {formatFileSize(attachment.size)}
           {typeof attachment.duration === 'number' && attachment.duration > 0 ? ` · ${formatDurationLabel(attachment.duration)}` : ''}
         </p>
@@ -797,14 +900,14 @@ function AttachmentCard({
           <div
             className={cn(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-              isOwn ? 'bg-black/10 text-[#2B1A00]' : 'bg-honey/12 text-honey',
+              isOwn ? 'bg-honey/14 text-honey' : 'bg-honey/12 text-honey',
             )}
           >
             <Mic className="h-4 w-4" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-xs font-medium">{attachment.name}</p>
-            <p className={cn('text-[10px]', isOwn ? 'text-[#5C3C03]/75' : 'text-muted-foreground')}>
+            <p className={cn('text-[10px]', isOwn ? 'text-[#C9A85C]/75' : 'text-muted-foreground')}>
               {formatFileSize(attachment.size)}
             </p>
           </div>
@@ -839,8 +942,9 @@ function AttachmentCard({
 // Status Checks for Message
 // ============================================
 function MessageStatus({ status, isOwn }: { status: Message['status']; isOwn?: boolean }) {
-  if (status === 'sent') return <Check className={cn('w-3.5 h-3.5', isOwn ? 'text-[#5C3C03]/70' : 'text-muted-foreground')} />
-  if (status === 'delivered') return <CheckCheck className={cn('w-3.5 h-3.5', isOwn ? 'text-[#5C3C03]/70' : 'text-muted-foreground')} />
+  if (status === 'sending') return <Clock className={cn('w-3.5 h-3.5 animate-pulse', isOwn ? 'text-[#C9A85C]/80' : 'text-muted-foreground')} />
+  if (status === 'sent') return <Check className={cn('w-3.5 h-3.5', isOwn ? 'text-[#C9A85C]/80' : 'text-muted-foreground')} />
+  if (status === 'delivered') return <CheckCheck className={cn('w-3.5 h-3.5', isOwn ? 'text-[#C9A85C]/80' : 'text-muted-foreground')} />
   if (status === 'read') return <CheckCheck className={cn('w-3.5 h-3.5', isOwn ? 'text-sky-700 dark:text-sky-300' : 'text-honey')} />
   if (status === 'failed') return <X className="w-3.5 h-3.5 text-destructive" />
   return null
@@ -858,6 +962,7 @@ function MessageBubble({
   onContextMenu,
   onOpenActions,
   onPreviewAttachment,
+  onRetry,
   replyingTo,
 }: {
   message: Message
@@ -868,6 +973,7 @@ function MessageBubble({
   onContextMenu: (e: React.MouseEvent, msg: Message) => void
   onOpenActions: (msg: Message, anchorRect: DOMRect) => void
   onPreviewAttachment: (attachment: Attachment) => void
+  onRetry: (messageId: string) => void
   replyingTo?: Message
 }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -949,10 +1055,10 @@ function MessageBubble({
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
           className={cn(
-            'relative group rounded-2xl px-3 py-2 transition-all',
+            'relative group rounded-[22px] px-3 py-2 transition-all',
             isOwn
-              ? 'bg-honey/90 text-[#2B1A00] rounded-br-md shadow-honey'
-              : 'glass-card text-[#F8E7C3] rounded-bl-md',
+              ? 'hub-bubble-own rounded-br-md'
+              : 'hub-bubble-incoming rounded-bl-md',
             isHovered && 'gradient-border',
           )}
         >
@@ -977,56 +1083,77 @@ function MessageBubble({
             {message.editedAt && (
               <span className="text-[9px] opacity-50">edited</span>
             )}
-            <span className={cn('text-[10px] opacity-50', isOwn && 'text-[#5C3C03]/80')}>
+            <span className={cn('text-[10px] opacity-60', isOwn && 'text-[#C9A85C]/85')}>
               {formatTime(message.createdAt)}
             </span>
             {isOwn && <MessageStatus status={message.status} isOwn />}
           </div>
 
+          {isOwn && message.status === 'failed' && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onRetry(message.id)
+              }}
+              className="mt-1 rounded-full border border-red-400/20 bg-red-500/10 px-2 py-0.5 text-[10px] font-medium text-red-200"
+            >
+              Retry
+            </button>
+          )}
+
           {/* Hover actions */}
-          <div
-            className={cn(
-              'absolute -top-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1',
-              isOwn ? '-left-2 -translate-x-full' : '-right-2 translate-x-full',
+          <AnimatePresence>
+            {(isHovered || showEmojiPicker) && (
+              <motion.div
+                initial={{ opacity: 0, y: 6, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 5, scale: 0.94 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                className={cn(
+                  'absolute -top-2 z-20 flex items-center gap-1 rounded-full border border-honey/15 bg-black/30 p-1 shadow-[0_10px_28px_rgba(0,0,0,0.32)] backdrop-blur-[20px]',
+                  isOwn ? '-left-2 -translate-x-full' : '-right-2 translate-x-full',
+                )}
+              >
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.button
+                        {...buttonHover}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowEmojiPicker(!showEmojiPicker)
+                        }}
+                        data-no-open-actions="true"
+                        className="w-7 h-7 rounded-full glass-premium flex items-center justify-center shadow-md"
+                      >
+                        <Smile className="w-3.5 h-3.5 text-honey" />
+                      </motion.button>
+                    </TooltipTrigger>
+                    <TooltipContent>React</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <motion.button
+                        {...buttonHover}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onReply(message)
+                        }}
+                        data-no-open-actions="true"
+                        className="w-7 h-7 rounded-full glass-premium flex items-center justify-center shadow-md"
+                      >
+                        <Reply className="w-3.5 h-3.5 text-honey" />
+                      </motion.button>
+                    </TooltipTrigger>
+                    <TooltipContent>Reply</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </motion.div>
             )}
-          >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.button
-                    {...buttonHover}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowEmojiPicker(!showEmojiPicker)
-                    }}
-                    data-no-open-actions="true"
-                    className="w-6 h-6 rounded-full glass-premium flex items-center justify-center shadow-md"
-                  >
-                    <Smile className="w-3 h-3 text-muted-foreground" />
-                  </motion.button>
-                </TooltipTrigger>
-                <TooltipContent>React</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <motion.button
-                    {...buttonHover}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onReply(message)
-                    }}
-                    data-no-open-actions="true"
-                    className="w-6 h-6 rounded-full glass-premium flex items-center justify-center shadow-md"
-                  >
-                    <Reply className="w-3 h-3 text-muted-foreground" />
-                  </motion.button>
-                </TooltipTrigger>
-                <TooltipContent>Reply</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+          </AnimatePresence>
 
           {/* Emoji Picker */}
           <AnimatePresence>
@@ -1111,8 +1238,8 @@ function ChatListItem({
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
       className={cn(
-        'w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left hover-lift hover-glow-border',
-        isActive && 'bg-honey/10',
+        'hub-chat-list-item w-full flex items-center gap-3 p-2.5 rounded-xl transition-all text-left hover-lift hover-glow-border',
+        isActive && 'hub-chat-list-item-active',
       )}
     >
       {/* Avatar */}
@@ -1179,6 +1306,259 @@ function ChatListItem({
 }
 
 // ============================================
+// Demo Stories Strip
+// ============================================
+function DemoStoriesStrip({
+  onOpenChat,
+}: {
+  onOpenChat: (chatId: string) => void
+}) {
+  const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null)
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0)
+
+  const demoStories = useMemo(() => {
+    return mockUsers
+      .filter((user) => user.id !== CURRENT_USER_ID)
+      .map((user, userIndex) => {
+        const storyGroup = mockStories.find((group) => group.userId === user.id)
+        const chat = mockChats.find((item) =>
+          item.type === 'private' && item.participants.some((participant) => participant.userId === user.id),
+        )
+        const fallbackCaption = DEMO_STORY_CAPTIONS[userIndex % DEMO_STORY_CAPTIONS.length]
+        const stories = storyGroup?.stories.length
+          ? storyGroup.stories.map((story, storyIndex) => ({
+              id: story.id,
+              caption: story.caption ?? fallbackCaption,
+              type: story.type,
+              viewerCount: story.viewerCount,
+              createdAt: story.createdAt,
+              mediaLabel: story.media.alt || user.displayName,
+              tone: DEMO_STORY_TONES[(userIndex + storyIndex) % DEMO_STORY_TONES.length],
+            }))
+          : [
+              {
+                id: `demo-story-${user.id}-1`,
+                caption: fallbackCaption,
+                type: userIndex % 3 === 0 ? 'video' as const : 'image' as const,
+                viewerCount: 120 + userIndex * 37,
+                createdAt: new Date(Date.now() - 1000 * 60 * 45 * (userIndex + 1)).toISOString(),
+                mediaLabel: `${user.displayName} demo story`,
+                tone: DEMO_STORY_TONES[userIndex % DEMO_STORY_TONES.length],
+              },
+              {
+                id: `demo-story-${user.id}-2`,
+                caption: DEMO_STORY_CAPTIONS[(userIndex + 3) % DEMO_STORY_CAPTIONS.length],
+                type: 'image' as const,
+                viewerCount: 180 + userIndex * 41,
+                createdAt: new Date(Date.now() - 1000 * 60 * 70 * (userIndex + 1)).toISOString(),
+                mediaLabel: `${user.displayName} second demo story`,
+                tone: DEMO_STORY_TONES[(userIndex + 2) % DEMO_STORY_TONES.length],
+              },
+            ]
+
+        return {
+          id: user.id,
+          user,
+          chatId: chat?.id,
+          caption: stories[0]?.caption ?? fallbackCaption,
+          hasUnviewed: storyGroup?.hasUnviewed ?? true,
+          avatarUrl: user.avatar ?? generateAvatar(user.displayName),
+          stories,
+        }
+      })
+  }, [])
+
+  const selectedStory = useMemo(
+    () => demoStories.find((story) => story.id === selectedStoryId),
+    [demoStories, selectedStoryId],
+  )
+  const activeStory = selectedStory?.stories[Math.min(activeSlideIndex, selectedStory.stories.length - 1)]
+
+  const openStory = useCallback((storyId: string) => {
+    setSelectedStoryId(storyId)
+    setActiveSlideIndex(0)
+  }, [])
+
+  const closeStory = useCallback(() => {
+    setSelectedStoryId(null)
+    setActiveSlideIndex(0)
+  }, [])
+
+  const goToNextStory = useCallback(() => {
+    if (!selectedStory) return
+    setActiveSlideIndex((current) => {
+      if (current < selectedStory.stories.length - 1) return current + 1
+      return current
+    })
+  }, [selectedStory])
+
+  const goToPreviousStory = useCallback(() => {
+    setActiveSlideIndex((current) => Math.max(0, current - 1))
+  }, [])
+
+  if (demoStories.length === 0) return null
+
+  return (
+    <>
+      <div className="border-b border-honey/10 px-3 pb-3">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-honey">
+            Demo Stories
+          </span>
+          <span className="rounded-full border border-honey/15 bg-black/20 px-2 py-0.5 text-[9px] text-[#BFA676]">
+            Guest only
+          </span>
+        </div>
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar-x">
+          {demoStories.map(({ id, user, caption, hasUnviewed, avatarUrl }) => (
+            <motion.button
+              key={id}
+              type="button"
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={() => openStory(id)}
+              aria-label={`Open ${user.displayName} story`}
+              className="w-[68px] shrink-0 text-left"
+            >
+              <div className={cn(
+                'relative mx-auto h-14 w-14 rounded-full p-[2px] shadow-[0_8px_20px_rgba(0,0,0,0.25)]',
+                hasUnviewed
+                  ? 'bg-[linear-gradient(135deg,#FFE8A3,#FFB800,#7A5300)]'
+                  : 'bg-white/10',
+              )}>
+                <img
+                  src={avatarUrl}
+                  alt={user.displayName}
+                  className="h-full w-full rounded-full border-2 border-[#100C07] object-cover"
+                />
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#100C07] bg-honey" />
+              </div>
+              <p className="mt-1 truncate text-center text-[10px] font-medium text-[#F6E3B2]">
+                {user.displayName.split(' ')[0]}
+              </p>
+              <p className="truncate text-center text-[9px] text-[#BFA676]">
+                {caption}
+              </p>
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {selectedStory && activeStory && (
+          <motion.div
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-black/72 p-3 backdrop-blur-xl"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={closeStory}
+          >
+            <motion.div
+              className="relative h-[min(720px,92dvh)] w-full max-w-[390px] overflow-hidden rounded-[34px] border border-honey/25 bg-[#0D0905] shadow-[0_30px_90px_rgba(0,0,0,0.7)]"
+              initial={{ y: 28, scale: 0.96 }}
+              animate={{ y: 0, scale: 1 }}
+              exit={{ y: 28, scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              onClick={(event) => event.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label={`${selectedStory.user.displayName} story`}
+            >
+              <div className="absolute inset-0" style={{ background: activeStory.tone }} />
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.13),transparent_26%),linear-gradient(180deg,rgba(0,0,0,0.04),rgba(0,0,0,0.6))]" />
+
+              <div className="relative z-10 flex h-full flex-col p-4">
+                <div className="mb-3 flex gap-1">
+                  {selectedStory.stories.map((story, index) => (
+                    <span key={story.id} className="h-1 flex-1 overflow-hidden rounded-full bg-white/20">
+                      <span
+                        className={cn(
+                          'block h-full rounded-full bg-honey transition-all duration-300',
+                          index <= activeSlideIndex ? 'w-full' : 'w-0',
+                        )}
+                      />
+                    </span>
+                  ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <img
+                    src={selectedStory.avatarUrl}
+                    alt={selectedStory.user.displayName}
+                    className="h-11 w-11 rounded-full border-2 border-honey/60 object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-[#FFE8A3]">
+                      {selectedStory.user.displayName}
+                    </p>
+                    <p className="truncate text-[11px] text-[#D7BE83]">
+                      {activeStory.type === 'video' ? 'Video story' : 'Photo story'} · {activeStory.viewerCount} views
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeStory}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-honey/20 bg-black/25 text-[#F6E3B2] backdrop-blur-xl"
+                    aria-label="Close story"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="flex flex-1 items-center justify-center">
+                  <div className="text-center">
+                    <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-[30px] border border-honey/25 bg-black/20 text-honey shadow-[0_0_35px_rgba(255,184,0,0.18)] backdrop-blur-xl">
+                      {activeStory.type === 'video' ? <Play className="h-9 w-9" /> : <ImageIcon className="h-9 w-9" />}
+                    </div>
+                    <p className="mx-auto max-w-[260px] text-xl font-bold leading-tight text-[#FFE8A3]">
+                      {activeStory.caption}
+                    </p>
+                    <p className="mt-2 text-xs text-[#D7BE83]">
+                      {activeStory.mediaLabel}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={goToPreviousStory}
+                    disabled={activeSlideIndex === 0}
+                    className="h-11 flex-1 rounded-2xl border border-honey/15 bg-black/24 text-sm font-semibold text-[#D7BE83] disabled:opacity-35"
+                  >
+                    Previous
+                  </button>
+                  {selectedStory.chatId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenChat(selectedStory.chatId)
+                        closeStory()
+                      }}
+                      className="h-11 flex-[1.25] rounded-2xl bg-honey text-sm font-bold text-[#261704] shadow-[0_0_24px_rgba(255,184,0,0.24)]"
+                    >
+                      Message
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={goToNextStory}
+                    disabled={activeSlideIndex >= selectedStory.stories.length - 1}
+                    className="h-11 flex-1 rounded-2xl border border-honey/15 bg-black/24 text-sm font-semibold text-[#F6E3B2] disabled:opacity-35"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
+// ============================================
 // Filter Tabs Component
 // ============================================
 function FilterTabs({
@@ -1221,11 +1601,13 @@ function FilterTabs({
 function InfoPanelContent({
   chat,
   chats,
+  messages,
   setChats,
   onClose,
 }: {
   chat: Chat
   chats: Chat[]
+  messages: Message[]
   setChats: React.Dispatch<React.SetStateAction<Chat[]>>
   onClose: () => void
 }) {
@@ -1235,6 +1617,14 @@ function InfoPanelContent({
   const initials = getChatInitials(chat)
   const other = getOtherUser(chat)
   const online = isOnline(chat)
+  const sharedAttachments = messages.flatMap((message) => message.attachments)
+  const sharedMedia = sharedAttachments.filter((attachment) =>
+    attachment.type === 'image' || attachment.type === 'video' || attachment.type === 'audio',
+  )
+  const sharedFiles = sharedAttachments.filter((attachment) => attachment.type === 'file')
+  const sharedLinks = messages
+    .filter((message) => /https?:\/\//i.test(message.content))
+    .slice(-4)
 
   const toggleMute = () => {
     const newValue = !isMuted
@@ -1246,7 +1636,7 @@ function InfoPanelContent({
     <div className="flex flex-col h-full">
       <div className="p-4 flex items-center justify-between">
         <h3 className="text-base font-semibold">Info</h3>
-        <Button variant="ghost" size="icon" className="h-8 w-8 md:hidden" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
           <X className="w-4 h-4" />
         </Button>
       </div>
@@ -1287,9 +1677,9 @@ function InfoPanelContent({
         {/* Quick actions */}
         <div className="grid grid-cols-3 gap-2 p-4">
           {[
-            { icon: <ImageIcon className="w-4 h-4" />, label: 'Media' },
-            { icon: <FileText className="w-4 h-4" />, label: 'Files' },
-            { icon: <Link2 className="w-4 h-4" />, label: 'Links' },
+            { icon: <ImageIcon className="w-4 h-4" />, label: 'Media', count: sharedMedia.length },
+            { icon: <FileText className="w-4 h-4" />, label: 'Files', count: sharedFiles.length },
+            { icon: <Link2 className="w-4 h-4" />, label: 'Links', count: sharedLinks.length },
           ].map((item) => (
             <button
               key={item.label}
@@ -1297,8 +1687,65 @@ function InfoPanelContent({
             >
               <span className="text-muted-foreground">{item.icon}</span>
               <span className="text-[10px] text-muted-foreground">{item.label}</span>
+              <span className="text-[9px] text-honey">{item.count}</span>
             </button>
           ))}
+        </div>
+
+        <Separator className="bg-border/50" />
+
+        <div className="p-4 space-y-4">
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-honey">Media</p>
+              <span className="text-[10px] text-muted-foreground">{sharedMedia.length}</span>
+            </div>
+            {sharedMedia.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {sharedMedia.slice(-6).map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    className="aspect-square rounded-xl border border-honey/10 bg-black/25 flex items-center justify-center overflow-hidden"
+                  >
+                    {attachment.type === 'image' ? (
+                      <img src={attachment.url} alt={attachment.name} className="h-full w-full object-cover" />
+                    ) : attachment.type === 'video' ? (
+                      <Video className="h-5 w-5 text-honey" />
+                    ) : (
+                      <Mic className="h-5 w-5 text-honey" />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-honey/10 bg-black/15 px-3 py-2 text-xs text-muted-foreground">
+                No shared media yet
+              </p>
+            )}
+          </div>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-honey">Files</p>
+              <span className="text-[10px] text-muted-foreground">{sharedFiles.length}</span>
+            </div>
+            <div className="space-y-2">
+              {sharedFiles.slice(-3).map((attachment) => (
+                <div key={attachment.id} className="flex items-center gap-2 rounded-xl border border-honey/10 bg-black/15 px-3 py-2">
+                  <FileText className="h-4 w-4 text-honey" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs text-foreground">{attachment.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                  </div>
+                </div>
+              ))}
+              {sharedFiles.length === 0 && (
+                <p className="rounded-xl border border-honey/10 bg-black/15 px-3 py-2 text-xs text-muted-foreground">
+                  No files shared yet
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <Separator className="bg-border/50" />
@@ -1338,6 +1785,12 @@ function InfoPanelContent({
 // Main Hub Section Component
 // ============================================
 export default function HubSection() {
+  const isAuthenticated = useAppStore((state) => state.isAuthenticated)
+  const authToken = useAppStore((state) => state.authToken)
+  const setActiveTab = useAppStore((state) => state.setActiveTab)
+  const hasStoredAuth = typeof window !== 'undefined' && Boolean(window.localStorage.getItem('honey_access_token'))
+  const isDemoMode = !isAuthenticated && !authToken && !hasStoredAuth
+
   // ---- State ----
   // Lazy state initialization — avoids setState-in-effect
   const [chats, setChats] = useState<Chat[]>(() => {
@@ -1348,14 +1801,14 @@ export default function HubSection() {
       return sc ? { ...mc, ...sc } : mc
     })
   })
-  const [messages, setMessages] = useState<Message[]>(() => {
-    if (typeof window === 'undefined') return mockMessages
+  const [messageState, setMessageState] = useState<NormalizedMessages>(() => {
+    if (typeof window === 'undefined') return normalizeMessages(mockMessages)
     const stored = loadFromStorage<Message[]>(STORAGE_KEY_MESSAGES, [])
     const merged = [...mockMessages]
     stored.forEach((sm) => {
       if (!merged.find((m) => m.id === sm.id)) merged.push(sm)
     })
-    return merged
+    return normalizeMessages(merged)
   })
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -1378,10 +1831,13 @@ export default function HubSection() {
   const [isRecordingVoice, setIsRecordingVoice] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [recorderError, setRecorderError] = useState<string | null>(null)
+  const [visibleMessageCount, setVisibleMessageCount] = useState(REVERSE_SCROLL_PAGE_SIZE)
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false)
 
   // ---- Refs ----
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const topSentinelRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const simulatedTypingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -1392,6 +1848,21 @@ export default function HubSection() {
   const recordingStreamRef = useRef<MediaStream | null>(null)
   const recordingShouldSendRef = useRef(true)
   const recordingDurationRef = useRef(0)
+  const previousActiveChatIdRef = useRef<string | null>(null)
+
+  const messages = useMemo(() => denormalizeMessages(messageState), [messageState])
+  const messageEntities = messageState.entities
+  const setMessages = useCallback((updater: React.SetStateAction<Message[]>) => {
+    setMessageState((prev) => {
+      const previousMessages = denormalizeMessages(prev)
+      const nextMessages =
+        typeof updater === 'function'
+          ? (updater as (current: Message[]) => Message[])(previousMessages)
+          : updater
+
+      return normalizeMessages(nextMessages)
+    })
+  }, [])
 
   // ---- Track initial message IDs (for isNew detection) ----
   useEffect(() => {
@@ -1405,10 +1876,17 @@ export default function HubSection() {
     [chats, activeChatId],
   )
 
-  const chatMessages = useMemo(
+  const activeChatMessages = useMemo(
     () => messages.filter((m) => m.chatId === activeChatId),
     [messages, activeChatId],
   )
+
+  const chatMessages = useMemo(
+    () => activeChatMessages.slice(Math.max(0, activeChatMessages.length - visibleMessageCount)),
+    [activeChatMessages, visibleMessageCount],
+  )
+
+  const hasOlderMessages = visibleMessageCount < activeChatMessages.length
 
   // ---- Initialize data (lazy state initializer to avoid setState in effect) ----
   // Initialization is done via useState factory functions defined above component.
@@ -1433,19 +1911,52 @@ export default function HubSection() {
         toCache.push(...msgs)
       })
       saveToStorage(STORAGE_KEY_MESSAGES, toCache)
+      void writeCachedMessagesToIndexedDb(toCache).catch(() => {
+        // localStorage remains the fallback cache when IndexedDB is unavailable.
+      })
     }
   }, [messages])
 
+  useEffect(() => {
+    let cancelled = false
+
+    void readCachedMessagesFromIndexedDb()
+      .then((cached) => {
+        if (cancelled || cached.length === 0) return
+        setMessages((prev) => mergeMessages(prev, cached))
+      })
+      .catch(() => {
+        // Cache hydration is best-effort; the mock seed keeps the demo usable.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [setMessages])
+
+  useEffect(() => {
+    setVisibleMessageCount(REVERSE_SCROLL_PAGE_SIZE)
+  }, [activeChatId])
+
   // ---- Auto scroll to bottom ----
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const scrollArea = scrollAreaRef.current
+    if (!scrollArea) return
+
+    scrollArea.scrollTo({
+      top: scrollArea.scrollHeight,
+      behavior,
+    })
   }, [])
 
   useEffect(() => {
-    if (chatMessages.length > 0) {
-      scrollToBottom()
+    const chatChanged = previousActiveChatIdRef.current !== activeChatId
+    previousActiveChatIdRef.current = activeChatId
+
+    if (activeChatId && chatChanged && chatMessages.length > 0) {
+      requestAnimationFrame(() => scrollToBottom('auto'))
     }
-  }, [chatMessages.length, scrollToBottom])
+  }, [activeChatId, chatMessages.length, scrollToBottom])
 
   // ---- Scroll detection ----
   useEffect(() => {
@@ -1459,6 +1970,36 @@ export default function HubSection() {
     el.addEventListener('scroll', handleScroll)
     return () => el.removeEventListener('scroll', handleScroll)
   }, [activeChatId])
+
+  useEffect(() => {
+    const root = scrollAreaRef.current
+    const sentinel = topSentinelRef.current
+    if (!root || !sentinel || !hasOlderMessages || isLoadingOlderMessages) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return
+
+        const previousHeight = root.scrollHeight
+        const previousTop = root.scrollTop
+        setIsLoadingOlderMessages(true)
+        setVisibleMessageCount((count) =>
+          Math.min(count + REVERSE_SCROLL_PAGE_SIZE, activeChatMessages.length),
+        )
+
+        window.setTimeout(() => {
+          requestAnimationFrame(() => {
+            root.scrollTop = root.scrollHeight - previousHeight + previousTop
+            setIsLoadingOlderMessages(false)
+          })
+        }, 0)
+      },
+      { root, rootMargin: '200px 0px 0px 0px', threshold: 0.01 },
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [activeChatMessages.length, hasOlderMessages, isLoadingOlderMessages])
 
   // ---- Typing detection (user typing) - handled via ref timer in onChangeText ----
   const handleTextChange = useCallback(
@@ -1547,7 +2088,7 @@ export default function HubSection() {
       senderId: CURRENT_USER_ID,
       content: draft.content,
       type: draft.type,
-      status: 'sent',
+      status: 'sending',
       replyTo: draft.replyTo,
       reactions: [],
       attachments: draft.attachments,
@@ -1566,14 +2107,27 @@ export default function HubSection() {
     )
 
     setTimeout(() => {
+      const shouldFail = newMsg.content.toLowerCase().includes('/fail')
       setMessages((prev) =>
-        prev.map((m) => (m.id === newMsg.id ? { ...m, status: 'delivered' as const } : m)),
+        prev.map((m) => (m.id === newMsg.id ? { ...m, status: shouldFail ? 'failed' as const : 'sent' as const } : m)),
       )
-    }, 1000)
+    }, 450)
 
     setTimeout(() => {
       setMessages((prev) =>
-        prev.map((m) => (m.id === newMsg.id ? { ...m, status: 'read' as const } : m)),
+        prev.map((m) => {
+          if (m.id !== newMsg.id || m.status === 'failed') return m
+          return { ...m, status: 'delivered' as const }
+        }),
+      )
+    }, 1150)
+
+    setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== newMsg.id || m.status === 'failed') return m
+          return { ...m, status: 'read' as const }
+        }),
       )
     }, 2500)
 
@@ -1869,6 +2423,39 @@ export default function HubSection() {
     openContextAt(msg, e.clientX, e.clientY)
   }, [openContextAt])
 
+  const retryMessage = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.id === messageId ? { ...message, status: 'sending' as const } : message,
+      ),
+    )
+
+    setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId ? { ...message, status: 'sent' as const } : message,
+        ),
+      )
+    }, 450)
+
+    setTimeout(() => {
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === messageId ? { ...message, status: 'delivered' as const } : message,
+        ),
+      )
+    }, 1100)
+  }, [setMessages])
+
+  const openChatInfo = useCallback(() => {
+    setShowInfoPanel(false)
+    setShowMobileInfo(true)
+  }, [])
+
+  const toggleChatInfo = useCallback(() => {
+    setShowMobileInfo((prev) => !prev)
+  }, [])
+
   const handleContextAction = useCallback(
     (action: string) => {
       if (!contextMessage) return
@@ -1946,6 +2533,13 @@ export default function HubSection() {
     setPreviewAttachment(null)
   }, [cancelVoiceRecording, isRecordingVoice])
 
+  const goToAppSection = useCallback(
+    (tab: AppTab) => {
+      setActiveTab(tab)
+    },
+    [setActiveTab],
+  )
+
   // ---- Keyboard send ----
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -1970,14 +2564,14 @@ export default function HubSection() {
   // ---- Render ----
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="relative z-10 flex h-[calc(100vh-3rem)] md:h-screen md:max-h-screen w-full overflow-hidden">
+      <div className="honey-refined-section honey-page-shell honey-hub-shell fixed inset-0 z-50 flex h-[100dvh] max-h-[100dvh] w-full overflow-hidden lg:relative lg:inset-auto lg:z-10">
         {/* ==========================================
             LEFT PANEL: Chat List
             ========================================== */}
         <div
           className={cn(
-            'w-full md:w-[320px] lg:w-[340px] md:min-w-[300px] h-full flex flex-col border-r border-border/50 glass-subtle',
-            mobileView !== 'list' ? 'hidden md:flex' : 'flex',
+            'hub-glass-panel w-full lg:w-[340px] lg:min-w-[320px] h-full flex flex-col border-r',
+            mobileView !== 'list' ? 'hidden lg:flex' : 'flex',
           )}
         >
           <div className="animated-gold-border sticky top-0 z-20 shrink-0 rounded-b-[1.35rem] border-b border-honey/20 bg-[linear-gradient(180deg,rgba(10,9,8,0.86),rgba(18,15,11,0.72))] backdrop-blur-3xl shadow-[0_10px_30px_rgba(0,0,0,0.45)]">
@@ -1991,6 +2585,7 @@ export default function HubSection() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 rounded-xl border border-honey/35 bg-black/45 text-honey hover:bg-honey hover:text-[#2B1A00] transition-all"
+                      aria-label="Open Hub menu"
                     >
                       <Menu className="w-4 h-4" />
                     </Button>
@@ -2002,6 +2597,34 @@ export default function HubSection() {
                     <DropdownMenuItem>New Chat</DropdownMenuItem>
                     <DropdownMenuItem>Archived Chats</DropdownMenuItem>
                     <DropdownMenuItem>Saved Messages</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => goToAppSection('home')}>
+                      Home
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('meet')}>
+                      Meet
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('streams')}>
+                      Streams
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('feed')}>
+                      Feed
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('explore')}>
+                      Explore
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('library')}>
+                      Library
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('files')}>
+                      Files & Media
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('profile')}>
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => goToAppSection('settings')}>
+                      Settings
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem>Message Settings</DropdownMenuItem>
                   </DropdownMenuContent>
@@ -2036,6 +2659,8 @@ export default function HubSection() {
 
             {/* Filter tabs */}
             <FilterTabs active={filter} onChange={setFilter} />
+
+            {isDemoMode && <DemoStoriesStrip onOpenChat={openChat} />}
           </div>
 
           {/* Chat list */}
@@ -2065,34 +2690,41 @@ export default function HubSection() {
             ========================================== */}
         <div
           className={cn(
-            'flex-1 h-full flex flex-col bg-[rgba(26,22,18,0.42)] backdrop-blur-sm',
-            mobileView !== 'chat' ? 'hidden md:flex' : 'flex',
+            'honey-hub-liquid-window relative min-w-0 flex-1 h-full min-h-0 flex flex-col overflow-hidden',
+            mobileView !== 'chat' ? 'hidden lg:flex' : 'flex',
           )}
         >
           {activeChat ? (
             <>
               {/* Chat Header */}
-              <div className="animated-gold-border flex items-center gap-3 px-3 py-2.5 shrink-0 rounded-b-[1.15rem] border-b border-[rgba(255,184,0,0.26)] bg-[linear-gradient(180deg,rgba(18,14,10,0.86),rgba(30,22,16,0.76))] backdrop-blur-[30px] shadow-[0_10px_24px_rgba(0,0,0,0.48)]">
+              <div className="animated-gold-border sticky top-0 z-30 flex items-center gap-3 px-3 py-2.5 shrink-0 rounded-b-[1.15rem] border-b border-[rgba(255,184,0,0.26)] bg-[linear-gradient(180deg,rgba(18,14,10,0.86),rgba(30,22,16,0.76))] backdrop-blur-[30px] shadow-[0_10px_24px_rgba(0,0,0,0.48)]">
                 {/* Back button (mobile) */}
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 md:hidden shrink-0"
+                  className="h-9 w-9 shrink-0 rounded-full border border-honey/15 bg-black/20 text-honey"
                   onClick={goBack}
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </Button>
 
                 {/* Avatar */}
-                <Avatar className="w-9 h-9 border border-border/50 cursor-pointer" onClick={() => { setShowMobileInfo(true); setShowInfoPanel(true) }}>
-                  <AvatarImage src={getChatAvatarUrl(activeChat)} alt={getChatDisplayName(activeChat)} />
-                  <AvatarFallback className="bg-honey/20 text-honey text-xs font-bold">
-                    {getChatInitials(activeChat)}
-                  </AvatarFallback>
-                </Avatar>
+                <button
+                  type="button"
+                  aria-label="Open chat profile"
+                  onClick={openChatInfo}
+                  className="shrink-0 rounded-full outline-none ring-honey/40 transition-transform hover:scale-[1.03] focus-visible:ring-2"
+                >
+                  <Avatar className="w-9 h-9 border border-border/50">
+                    <AvatarImage src={getChatAvatarUrl(activeChat)} alt={getChatDisplayName(activeChat)} />
+                    <AvatarFallback className="bg-honey/20 text-honey text-xs font-bold">
+                      {getChatInitials(activeChat)}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
 
                 {/* Name & Status */}
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setShowMobileInfo(true); setShowInfoPanel(true) }}>
+                <div className="flex-1 min-w-0 cursor-pointer" onClick={openChatInfo}>
                   <div className="flex items-center gap-1">
                     <h3 className="text-sm font-semibold truncate text-[#F6E3B2]">{getChatDisplayName(activeChat)}</h3>
                     {getOtherUser(activeChat)?.isVerified && (
@@ -2120,49 +2752,117 @@ export default function HubSection() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-0.5">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-honey">
-                        <Phone className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Voice Call</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-honey">
-                        <Video className="w-4 h-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Video Call</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                  <div className="hidden lg:flex items-center gap-0.5">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-honey">
+                          <Phone className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Voice Call</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-honey">
+                          <Video className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Video Call</TooltipContent>
+                    </Tooltip>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-honey"
-                        onClick={() => { setShowInfoPanel(!showInfoPanel); setShowMobileInfo(true) }}
+                        className="h-9 w-9 rounded-full border border-honey/18 bg-black/24 text-honey hover:bg-honey hover:text-[#2B1A00]"
+                        aria-label="Open chat menu"
                       >
-                        <MoreVertical className="w-4 h-4" />
+                        <Menu className="w-4 h-4" />
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>More</TooltipContent>
-                  </Tooltip>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-52 border-honey/25 bg-[rgba(12,10,9,0.96)] text-[#F6E3B2] backdrop-blur-2xl"
+                    >
+                      <DropdownMenuItem onClick={goBack} className="lg:hidden">
+                        <ArrowLeft className="mr-2 h-4 w-4 text-honey" />
+                        Back to chats
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={openChatInfo}>
+                        <User className="mr-2 h-4 w-4 text-honey" />
+                        Profile info
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>
+                        <Phone className="mr-2 h-4 w-4 text-honey" />
+                        Voice call
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Video className="mr-2 h-4 w-4 text-honey" />
+                        Video call
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Search className="mr-2 h-4 w-4 text-honey" />
+                        Search in chat
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <BellOff className="mr-2 h-4 w-4 text-honey" />
+                        Mute chat
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => goToAppSection('home')}>
+                        Home
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => goToAppSection('meet')}>
+                        Meet
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => goToAppSection('streams')}>
+                        Streams
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => goToAppSection('feed')}>
+                        Feed
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => goToAppSection('explore')}>
+                        Explore
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => goToAppSection('files')}>
+                        Files & Media
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => goToAppSection('profile')}>
+                        Profile
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => goToAppSection('settings')}>
+                        Settings
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
 
               {/* Messages Area */}
               <div
                 ref={scrollAreaRef}
-                className="flex-1 overflow-y-auto relative"
+                className="flex-1 min-h-0 overflow-y-auto relative pb-3"
               >
-                <div className="py-4 space-y-1 min-h-full">
+                <motion.div
+                  variants={staggerContainer(0.025)}
+                  initial="hidden"
+                  animate="visible"
+                  className="py-4 space-y-1 min-h-full"
+                >
+                  <div ref={topSentinelRef} className="h-1" />
+                  {hasOlderMessages && (
+                    <div className="flex justify-center py-2">
+                      <span className="rounded-full border border-honey/15 bg-black/20 px-3 py-1 text-[10px] text-[#CDB88A] backdrop-blur-xl">
+                        {isLoadingOlderMessages ? 'Loading history...' : 'Scroll up for history'}
+                      </span>
+                    </div>
+                  )}
                   {chatMessages.map((msg, index) => {
                     const isOwn = msg.senderId === CURRENT_USER_ID
-                    const replyingTo = msg.replyTo
-                      ? messages.find((m) => m.id === msg.replyTo)
-                      : undefined
+                    const replyingTo = msg.replyTo ? messageEntities[msg.replyTo] : undefined
                     const isNew = isSessionMessage(msg.id)
 
                     return (
@@ -2185,6 +2885,7 @@ export default function HubSection() {
                           onContextMenu={handleContextMenu}
                           onOpenActions={openMessageActions}
                           onPreviewAttachment={setPreviewAttachment}
+                          onRetry={retryMessage}
                           replyingTo={replyingTo}
                         />
                       </React.Fragment>
@@ -2198,7 +2899,7 @@ export default function HubSection() {
                     </div>
                   )}
                   <div ref={messagesEndRef} />
-                </div>
+                </motion.div>
 
                 {/* Scroll to bottom button */}
                 <AnimatePresence>
@@ -2253,7 +2954,7 @@ export default function HubSection() {
               </AnimatePresence>
 
               {/* Message Composer */}
-              <div className="animated-gold-border px-3 py-2 shrink-0 rounded-t-[1.15rem] border-t border-[rgba(255,184,0,0.26)] bg-[linear-gradient(0deg,rgba(18,14,10,0.88),rgba(30,22,16,0.78))] backdrop-blur-[30px] shadow-[0_-10px_24px_rgba(0,0,0,0.5)]">
+              <div className="hub-floating-composer relative z-20 mx-3 mb-3 mt-auto shrink-0 rounded-[26px] px-3 py-2">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -2404,7 +3105,7 @@ export default function HubSection() {
                       placeholder="Type a message..."
                       rows={1}
                       disabled={isRecordingVoice}
-                      className="w-full resize-none rounded-2xl border border-honey/20 bg-black/35 text-sm px-4 py-2.5 text-[#F6E3B2] placeholder:text-[#A9966C] focus:outline-none focus:ring-1 focus:ring-honey/30 max-h-32 overflow-y-auto"
+                      className="hub-floating-input w-full resize-none rounded-2xl border border-honey/20 bg-black/35 text-sm px-4 py-2.5 text-[#F6E3B2] placeholder:text-[#A9966C] focus:outline-none max-h-32 overflow-y-auto"
                       style={{ minHeight: '40px' }}
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement
@@ -2492,14 +3193,15 @@ export default function HubSection() {
             ========================================== */}
         <div
           className={cn(
-            'w-[300px] lg:w-[320px] h-full border-l border-border/50 glass-subtle shrink-0 overflow-hidden',
-            !showInfoPanel ? 'hidden md:flex' : 'hidden',
+            'w-[320px] h-full border-l border-border/50 glass-subtle shrink-0 overflow-hidden',
+            showInfoPanel ? 'hidden xl:flex' : 'hidden',
           )}
         >
           {activeChat ? (
             <InfoPanelContent
               chat={activeChat}
               chats={chats}
+              messages={activeChatMessages}
               setChats={setChats}
               onClose={() => setShowInfoPanel(false)}
             />
@@ -2528,18 +3230,37 @@ export default function HubSection() {
         {/* ==========================================
             Mobile Info Sheet
             ========================================== */}
-        {activeChat && (
-          <Sheet open={showMobileInfo} onOpenChange={setShowMobileInfo}>
-            <SheetContent side="right" className="w-[300px] p-0 glass-premium">
-              <InfoPanelContent
-                chat={activeChat}
-                chats={chats}
-                setChats={setChats}
-                onClose={() => setShowMobileInfo(false)}
-              />
-            </SheetContent>
-          </Sheet>
-        )}
+        <AnimatePresence>
+          {activeChat && showMobileInfo && (
+            <motion.div
+              className="fixed inset-0 z-[120] flex justify-end bg-black/55 backdrop-blur-md"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileInfo(false)}
+            >
+              <motion.aside
+                initial={{ x: 420, opacity: 0.82 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 420, opacity: 0.82 }}
+                transition={{ type: 'spring', stiffness: 360, damping: 34 }}
+                className="h-full w-full max-w-[390px] overflow-hidden border-l border-honey/20 bg-[linear-gradient(180deg,rgba(10,8,6,0.96),rgba(21,15,9,0.94))] shadow-[0_0_70px_rgba(0,0,0,0.55)] backdrop-blur-2xl"
+                onClick={(event) => event.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Chat profile information"
+              >
+                <InfoPanelContent
+                  chat={activeChat}
+                  chats={chats}
+                  messages={activeChatMessages}
+                  setChats={setChats}
+                  onClose={() => setShowMobileInfo(false)}
+                />
+              </motion.aside>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ==========================================
             Forward Message Sheet
@@ -2550,7 +3271,7 @@ export default function HubSection() {
             if (!open) setForwardMessage(null)
           }}
         >
-          <SheetContent side="right" className="w-full sm:w-[360px] p-0 glass-premium">
+        <SheetContent side="right" className="w-full sm:w-[360px] p-0 glass-premium honey-refined-dialog">
             <SheetHeader className="p-4 border-b border-border/50">
               <SheetTitle className="text-gradient-honey">Forward Message</SheetTitle>
             </SheetHeader>
@@ -2608,10 +3329,11 @@ export default function HubSection() {
                 style={{ left: contextPos.x, top: contextPos.y }}
               >
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="glass-premium rounded-xl shadow-lg p-1.5 min-w-[220px]"
+                  initial={{ opacity: 0, y: 10, scale: 0.94, filter: 'blur(6px)' }}
+                  animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, y: 8, scale: 0.96, filter: 'blur(5px)' }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  className="glass-premium rounded-2xl shadow-[0_24px_70px_rgba(0,0,0,0.42)] p-1.5 min-w-[220px]"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex items-center gap-1 p-1 pb-2 border-b border-border/40 mb-1">

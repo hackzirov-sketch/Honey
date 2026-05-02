@@ -162,7 +162,7 @@ function saveSettings(s: HoneySettings) {
 // ============================================
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-1">
+    <h4 className="mt-5 mb-2 px-1 text-[11px] font-semibold text-muted-foreground uppercase tracking-[0.24em]">
       {children}
     </h4>
   )
@@ -178,7 +178,7 @@ function ToggleRow({
   onChange: (v: boolean) => void
 }) {
   return (
-    <div className="flex items-center justify-between py-2.5">
+    <div className="flex items-center justify-between rounded-2xl border border-honey/10 bg-black/10 px-3 py-3 transition-colors hover:border-honey/20 hover:bg-white/[0.02]">
       <span className="text-sm">{label}</span>
       <Switch checked={value} onCheckedChange={onChange} />
     </div>
@@ -197,10 +197,10 @@ function SelectRow({
   options: { value: string; label: string }[]
 }) {
   return (
-    <div className="flex items-center justify-between py-2.5">
+    <div className="flex items-center justify-between rounded-2xl border border-honey/10 bg-black/10 px-3 py-3 transition-colors hover:border-honey/20 hover:bg-white/[0.02]">
       <span className="text-sm">{label}</span>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="w-36 h-8 text-xs">
+        <SelectTrigger className="h-8 w-36 rounded-xl border-border bg-transparent text-xs">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -799,20 +799,20 @@ export default function SettingsSection({ onBack }: { onBack?: () => void }) {
   void settingsVersion
 
   return (
-    <div className="pb-24 md:pb-6 overflow-x-hidden">
+    <div className="honey-refined-section honey-page-shell pb-24 md:pb-6 overflow-x-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 md:px-6 pt-1 pb-3">
+      <div className="mx-4 mt-4 flex items-center gap-3 rounded-[26px] border border-honey/12 bg-[linear-gradient(180deg,rgba(12,10,8,0.78),rgba(20,16,12,0.68))] px-4 py-3 shadow-[0_18px_44px_rgba(0,0,0,0.16)] backdrop-blur-[18px] md:mx-6">
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={onBack}
-          className="p-1.5 rounded-lg hover:bg-accent/30 transition-colors"
+          className="glass-card rounded-2xl p-2 text-muted-foreground transition-colors hover:text-honey"
         >
           <ChevronLeft className="w-5 h-5" />
         </motion.button>
         <h2 className="text-lg font-bold">Settings</h2>
       </div>
 
-      <Separator />
+      <Separator className="mx-4 md:mx-6" />
 
       {/* Desktop Layout: Sidebar + Content */}
       <div className="hidden md:flex">
@@ -871,7 +871,7 @@ export default function SettingsSection({ onBack }: { onBack?: () => void }) {
 
       {/* Delete Account Dialog */}
       <AlertDialog open={deleteDialog} onOpenChange={setDeleteDialog}>
-        <AlertDialogContent className="glass-premium border-border">
+        <AlertDialogContent className="glass-premium honey-refined-dialog border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-400">Delete Account</AlertDialogTitle>
             <AlertDialogDescription className="text-sm">
